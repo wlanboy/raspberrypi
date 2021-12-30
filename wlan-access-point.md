@@ -118,3 +118,11 @@ curl -sSL https://install.pi-hole.net | bash
 * select eth0 device
 * do not activate static ip settings
 * wait
+
+## pi-hole web ui steps
+* http://pi-hole/admin/settings.php?tab=dns
+  * Permit all origins
+  * Never forward non-FQDN A and AAAA queries
+  * Use Conditional Forwarding -> your router ip subnet
+* http://pi-hole/admin/groups-adlists.php
+  * add from https://github.com/wlanboy/Dockerfiles/blob/main/PiHole/hostlists.txt
