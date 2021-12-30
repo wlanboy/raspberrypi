@@ -126,3 +126,5 @@ curl -sSL https://install.pi-hole.net | bash
   * Use Conditional Forwarding -> your router ip subnet
 * http://pi-hole/admin/groups-adlists.php
   * add from https://github.com/wlanboy/Dockerfiles/blob/main/PiHole/hostlists.txt
+* http://pi-hole/admin/gravity.php
+  * update gravity lists
