@@ -7,3 +7,4 @@ Raspberry Pi setup scripts
 * [Create RAID 1 with two usb hard disks](https://github.com/wlanboy/raspberrypi/blob/main/create-raid1.md)
 * [Create windows share for raid volume](https://github.com/wlanboy/raspberrypi/blob/main/windows-share.md)
 * [Preconfigure wlan client on Raspberry Pi sd card](https://github.com/wlanboy/raspberrypi/blob/main/headless-wlan-client.md)
+* [Create bluetooth serial service on Raspberry Pi](https://github.com/wlanboy/raspberrypi/blob/main/bluetooth-serial.md)
