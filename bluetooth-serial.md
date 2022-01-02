@@ -1,4 +1,4 @@
-# Create bluetooth serial service
+# Create bluetooth serial console
 
 ## install tools
 ```
