@@ -40,6 +40,7 @@ changes:
 ```
 INTERFACES="wlan0"
 ```
+
 ## configure wlan0 interface
 ```
 nano /etc/network/interfaces.d/wlan0
