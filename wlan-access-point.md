@@ -21,7 +21,7 @@ subnet 192.168.42.0 netmask 255.255.255.0 {
 	default-lease-time 600;
 	max-lease-time 7200;
 	option domain-name "local";
-	option domain-name-servers 192.168.42.1, 8.8.8.8, 8.8.4.4;
+	option domain-name-servers 192.168.42.1;
 }
 ```
 
