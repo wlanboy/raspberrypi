@@ -40,7 +40,19 @@ changes:
 ```
 INTERFACES="wlan0"
 ```
+## configure wlan0 interface
+```
+nano /etc/network/interfaces.d/wlan0
+```
+content:
+```
+allow-hotplug wlan0
+iface wlan0 inet static
+  address 192.168.42.1
+  netmask 255.255.255.0
+```
 
+## setup wlan0 interface
 ```
 ifconfig wlan0 192.168.42.1
 ```
