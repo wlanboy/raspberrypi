@@ -39,6 +39,7 @@ EOF
 
 ## apply changes
 ```
+sudo systemctl daemon-reload
 sudo systemctl restart bluetooth
 sudo systemctl enable rfcomm
 sudo systemctl restart rfcomm
