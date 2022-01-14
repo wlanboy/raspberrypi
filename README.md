@@ -9,3 +9,4 @@ Raspberry Pi setup projects
 * [Preconfigure wlan client on Raspberry Pi sd card](https://github.com/wlanboy/raspberrypi/blob/main/headless-wlan-client.md)
 * [Create bluetooth serial console on Raspberry Pi](https://github.com/wlanboy/raspberrypi/blob/main/bluetooth-serial.md)
 * [Create tor hidden service](https://github.com/wlanboy/raspberrypi/blob/main/tor-hidden-service.md)
+* [Switch to xfce4](https://github.com/wlanboy/raspberrypi/blob/main/xfce4.md)
