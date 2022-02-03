@@ -32,3 +32,4 @@ cat /sys/kernel/debug/usb/devices
 
 ## packages needed for  usb wlan sticks
 * kmod-rtl8192cu 
+* rtl8188eu-firmware
