@@ -28,3 +28,6 @@ cat /sys/kernel/debug/usb/devices
 * kmod-mii
 * kmod-usb-net
 * kmod-usb-net-rtl8152
+
+## packages needed for  usb wlan sticks
+* kmod-rtl8192cu 
