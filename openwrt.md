@@ -13,7 +13,8 @@
 * Plugin lan cable to first port
 * browse to http://192.168.1.1/cgi-bin/luci/
 * check web interfaces http://192.168.1.1/cgi-bin/luci/admin/network/network
-* check for modules in https://downloads.openwrt.org/releases/21.02.1/targets/bcm27xx/bcm2709/packages/
+* check for modules in https://downloads.openwrt.org/releases/21.02.1/targets/bcm27xx/bcm2709/packages/ (raspberry pi zero w 2)
+* check for modules in https://downloads.openwrt.org/releases/21.02.1/targets/bcm27xx/bcm2708/packages/ (raspberrz pi 1)
 
 ## usb troubleshooting
 ```
