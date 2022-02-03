@@ -17,9 +17,14 @@
 
 ## usb troubleshooting
 ```
-opkg update && opkg install usbutils && lsusb
+opkg update && opkg install usbutils && lsusb -t
 ```
 and
 ```
 cat /sys/kernel/debug/usb/devices
 ```
+
+## packages needed for common usb lan adapters
+* kmod-mii
+* kmod-usb-net
+* kmod-usb-net-rtl8152
