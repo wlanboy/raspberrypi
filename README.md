@@ -10,3 +10,4 @@ Raspberry Pi setup projects
 * [Create bluetooth serial console on Raspberry Pi](https://github.com/wlanboy/raspberrypi/blob/main/bluetooth-serial.md)
 * [Create tor hidden service](https://github.com/wlanboy/raspberrypi/blob/main/tor-hidden-service.md)
 * [Switch to xfce4](https://github.com/wlanboy/raspberrypi/blob/main/xfce4.md)
+* [Run mariadb with docker](https://github.com/wlanboy/raspberrypi/blob/main/mariadb-in-docker.md)
