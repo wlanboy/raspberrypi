@@ -11,4 +11,4 @@ Raspberry Pi setup projects
 * [Create tor hidden service](https://github.com/wlanboy/raspberrypi/blob/main/tor-hidden-service.md)
 * [Switch to xfce4](https://github.com/wlanboy/raspberrypi/blob/main/xfce4.md)
 * [Run mariadb with docker](https://github.com/wlanboy/raspberrypi/blob/main/mariadb-in-docker.md)
-* [Create ARM64 based k3s kubernets cluster](https://github.com/wlanboy/raspberrypi/raw/main/k3s-cluster.md)
+* [Create ARM64 based k3s kubernets cluster](https://github.com/wlanboy/raspberrypi/blob/main/k3s-cluster.md)
