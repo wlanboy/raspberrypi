@@ -3,10 +3,14 @@
 ## install docker 
 - See: https://github.com/wlanboy/raspberrypi/blob/main/docker.md
 
-## install k3s without traefik and servicelb and define the exteral ip
+## change boot cmd line
 ```
 sudo nano /boot/firmware/cmdline.txt
 #add cgroup_memory=1 cgroup_enable=memory
+```
+
+## install k3s without traefik and servicelb and define the exteral ip
+```
 sudo apt install -y iptables iptables-persistent
 sudo dphys-swapfile swapoff
 sudo dphys-swapfile uninstall
