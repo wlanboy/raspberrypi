@@ -5,6 +5,13 @@
 
 ## install k3s without traefik and servicelb and define the exteral ip
 ```
+sudo nano /boot/firmware/cmdline.txt
+#add cgroup_memory=1 cgroup_enable=memory
+sudo apt install -y iptables iptables-persistent
+sudo dphys-swapfile swapoff
+sudo dphys-swapfile uninstall
+sudo systemctl disable dphys-swapfile
+
 PUBLIC_IP="192.168.178.22"
 curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" INSTALL_K3S_CHANNEL=stable INSTALL_K3S_EXEC="--disable=traefik --disable=servicelb --node-external-ip=${PUBLIC_IP}" sh -
 ```
