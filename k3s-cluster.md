@@ -59,4 +59,10 @@ kubectl apply -f metallb-adv.yaml
 ## check cluster
 ```
 kubectl get all -A
+
+
+## uninstall k3s
 ```
+/usr/local/bin/k3s-uninstall.sh
+```
+
