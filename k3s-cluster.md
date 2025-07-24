@@ -11,7 +11,7 @@ sudo nano /boot/firmware/cmdline.txt
 
 ## swap files and ip tables
 ```
-sudo apt install -y iptables iptables-persistent
+sudo apt install -y iptables
 sudo dphys-swapfile swapoff
 sudo dphys-swapfile uninstall
 sudo systemctl disable dphys-swapfile
