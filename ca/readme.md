@@ -31,32 +31,8 @@ This section walks you through creating your own self-signed root CA certificate
     sudo update-ca-certificates
     ```
 
-## 2\. Install and Configure acme.sh
-
-`acme.sh` is a popular shell script for managing certificates from various CAs, including your own.
-
-1.  **Install `socat`**, a utility that `acme.sh` uses for some challenge types.
+4.  **Generate cert for a host** This step tells creates a ssl cert for a hostname on your local lan. It will tell you where to find the cert files.
 
     ```bash
-    sudo apt-get install socat
+    ./create.sh homeassistant.lan
     ```
-
-2.  **Download and install `acme.sh`**. This command fetches the installation script from GitHub and runs it. It will set up the necessary files and add an alias to your `.bashrc` or a similar shell configuration file.
-
-    ```bash
-    curl https://get.acme.sh | sh
-    ```
-
-3.  **Reload your shell environment** to make the `acme.sh` command available.
-
-    ```bash
-    source ~/.bashrc
-    ```
-
-4.  **Set the default CA to local**. This is the crucial step that tells `acme.sh` to use your newly created CA for signing certificates by default.
-
-    ```bash
-    acme.sh --set-default-ca --server local
-    ```
-
-You can now use `acme.sh` to generate certificates signed by your own local CA for your homelab devices.
