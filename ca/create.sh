@@ -7,7 +7,7 @@ CA_KEY="ca.key"
 # === Hostname prüfen ===
 if [ -z "$1" ]; then
   echo "❌ Fehler: Bitte gib einen Hostnamen an."
-  echo "➡️  Beispiel: ./create-cert.sh homeassistant.lan"
+  echo "➡️  Beispiel: ./create.sh homeassistant.lan"
   exit 1
 fi
 
