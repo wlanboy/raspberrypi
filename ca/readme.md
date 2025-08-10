@@ -1,4 +1,4 @@
-#Creating a local Certificate Authority (CA) and using `acme.sh` with it is a great way to manage certificates for your homelab.
+Creating a local Certificate Authority (CA) and using `acme.sh` with it is a great way to manage certificates for your homelab.
 
 ## 1\. Create a Local Certificate Authority
 
