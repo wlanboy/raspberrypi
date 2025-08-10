@@ -2,6 +2,7 @@
 Raspberry Pi setup projects
 
 ## list of setup steps for usefull raspberry pi services
+* [Create your own offline CA for local ssl certs.](https://github.com/wlanboy/raspberrypi/blob/main/ca/wreadme.md)
 * [WLAN Access Point with ad-filter](https://github.com/wlanboy/raspberrypi/blob/main/wlan-access-point.md)
 * [Git server with web frontend](https://github.com/wlanboy/raspberrypi/blob/main/gitea.md)
 * [Create RAID 1 with two usb hard disks](https://github.com/wlanboy/raspberrypi/blob/main/create-raid1.md)
