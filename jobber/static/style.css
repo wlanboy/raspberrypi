@@ -92,14 +92,17 @@ button:hover {
 }
 
 .job-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     background-color: #333;
     padding: 15px;
     margin-bottom: 10px;
     border-radius: 4px;
     border-left: 5px solid #bb86fc;
+}
+
+.job-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
 }
 
 .job-details {
@@ -127,8 +130,9 @@ button:hover {
     word-break: break-all;
 }
 
-.delete-form {
-    margin-left: 10px;
+.delete-form, .run-form {
+    margin-top: 0;
+    margin-bottom: 0;
 }
 
 .delete-button {
@@ -140,4 +144,39 @@ button:hover {
 
 .delete-button:hover {
     background-color: #b05461;
+}
+
+.run-button {
+    background-color: #4CAF50; /* Grüne Farbe für den Run-Button */
+    color: white;
+    padding: 8px 15px;
+    font-size: 14px;
+    margin-top: 0;
+}
+
+.run-button:hover {
+    background-color: #45a049;
+}
+
+.job-output-details {
+    margin-top: 15px;
+    border-top: 1px solid #444;
+    padding-top: 10px;
+}
+
+.run-info {
+    font-size: 0.9em;
+    color: #b0b0b0;
+}
+
+.job-output {
+    background-color: #1e1e1e;
+    color: #00ff00; /* Neon-Grün für die Konsolenausgabe */
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 5px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 200px;
+    overflow-y: auto;
 }
