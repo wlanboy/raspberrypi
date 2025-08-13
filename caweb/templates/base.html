@@ -34,6 +34,22 @@
                 localStorage.setItem('theme', 'light');
             }
         });
+
+        function copyToClipboard(elementId) {
+            const codeBlock = document.getElementById(elementId);
+            const textToCopy = codeBlock.innerText;
+
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const button = codeBlock.closest('.code-block-header').querySelector('.copy-button');
+                const originalText = button.innerText;
+                button.innerText = 'Kopiert!';
+                setTimeout(() => {
+                    button.innerText = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('Fehler beim Kopieren: ', err);
+            });
+        }
     </script>
 </body>
 </html>

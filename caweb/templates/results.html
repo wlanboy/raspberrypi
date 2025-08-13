@@ -10,11 +10,17 @@
         <a href="/download/{{ hostname }}/{{ hostname }}.key" download>Schlüssel herunterladen</a>
     </div>
     
-    <h2>Zertifikat (`{{ hostname }}.crt`)</h2>
-    <pre><code>{{ cert_content }}</code></pre>
+    <div class="code-block-header">
+        <h2>Zertifikat (`{{ hostname }}.crt`)</h2>
+        <button class="copy-button" onclick="copyToClipboard('cert-code')">Kopieren</button>
+        <pre><code id="cert-code">{{ cert_content }}</code></pre>
+    </div>
 
-    <h2>Privater Schlüssel (`{{ hostname }}.key`)</h2>
-    <pre><code>{{ key_content }}</code></pre>
+    <div class="code-block-header">
+        <h2>Privater Schlüssel (`{{ hostname }}.key`)</h2>
+        <button class="copy-button" onclick="copyToClipboard('key-code')">Kopieren</button>
+        <pre><code id="key-code">{{ key_content }}</code></pre>
+    </div>
     
     <div class="back-button-container">
         <a href="/" class="back-button">Neues Zertifikat erstellen</a>
