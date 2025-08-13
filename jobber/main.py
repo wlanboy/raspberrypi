@@ -1,8 +1,10 @@
 import sqlite3
+import subprocess
+import time
 from flask import Flask, render_template, request, redirect, url_for, session, g
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Wichtig für Sessions!
+app.secret_key = 'your_secret_key_job'  # Wichtig für Sessions!
 
 DATABASE = 'jobs.db'
 
@@ -17,7 +19,7 @@ def get_db_connection():
 def create_table():
     """
     Erstellt die 'jobs'-Tabelle, falls sie nicht existiert.
-    Die Tabelle enthält nun eine Spalte für den generierten Docker-Befehl.
+    Die Tabelle enthält nun Spalten für Laufzeitinformationen und die Ausgabe.
     """
     with app.app_context():
         db = get_db_connection()
@@ -29,7 +31,10 @@ def create_table():
                 name TEXT NOT NULL,
                 image TEXT NOT NULL,
                 params TEXT,
-                docker_command TEXT
+                docker_command TEXT,
+                last_run_start_time TEXT,
+                last_run_duration REAL,
+                last_run_output TEXT
             )
         """)
         db.commit()
@@ -111,7 +116,61 @@ def delete_job(job_id):
 
     return redirect(url_for('jobs_page'))
 
+@app.route('/run_job/<int:job_id>', methods=['POST'])
+def run_job(job_id):
+    """
+    Führt den Docker-Befehl eines Jobs aus, erfasst die Ausgabe und Laufzeit
+    und speichert die Ergebnisse in der Datenbank.
+    """
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    current_user = session['username']
+    db = get_db_connection()
+
+    job = db.execute('SELECT * FROM jobs WHERE id = ? AND creator = ?', (job_id, current_user)).fetchone()
+    
+    if job:
+        try:
+            start_time = time.time()
+            # Der Docker-Befehl wird aus der Datenbank gelesen
+            command = job['docker_command'].split()
+            
+            # Subprocess ausführen und Ausgabe erfassen
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=True,
+                shell=False
+            )
+            duration = time.time() - start_time
+            
+            # Ausgabe und Laufzeit in der Datenbank aktualisieren
+            db.execute(
+                'UPDATE jobs SET last_run_start_time = ?, last_run_duration = ?, last_run_output = ? WHERE id = ?',
+                (time.strftime('%Y-%m-%d %H:%M:%S'), duration, result.stdout, job_id)
+            )
+            db.commit()
+        except subprocess.CalledProcessError as e:
+            duration = time.time() - start_time
+            error_output = f"Error: Command failed with exit code {e.returncode}\n{e.stderr}"
+            db.execute(
+                'UPDATE jobs SET last_run_start_time = ?, last_run_duration = ?, last_run_output = ? WHERE id = ?',
+                (time.strftime('%Y-%m-%d %H:%M:%S'), duration, error_output, job_id)
+            )
+            db.commit()
+        except FileNotFoundError:
+            error_output = "Error: Docker command not found. Is Docker installed and in your PATH?"
+            db.execute(
+                'UPDATE jobs SET last_run_start_time = ?, last_run_duration = ?, last_run_output = ? WHERE id = ?',
+                (time.strftime('%Y-%m-%d %H:%M:%S'), 0, error_output, job_id)
+            )
+            db.commit()
+    
+    return redirect(url_for('jobs_page'))
+
+
 if __name__ == '__main__':
-    # Erstellt die Tabelle, bevor die App läuft
     create_table()
     app.run(debug=True)
