@@ -38,6 +38,22 @@ def index():
     
     return render_template("form.html")
 
+@app.route("/list")
+def list_certificates():
+    certs = []
+    for hostname in os.listdir(CERT_DIR):
+        dir_path = os.path.join(CERT_DIR, hostname)
+        if os.path.isdir(dir_path):
+            cert_path = os.path.join(hostname, f"{hostname}.crt")
+            key_path = os.path.join(hostname, f"{hostname}.key")
+            if os.path.exists(os.path.join(CERT_DIR, cert_path)) and os.path.exists(os.path.join(CERT_DIR, key_path)):
+                certs.append({
+                    "hostname": hostname,
+                    "cert_file": cert_path,
+                    "key_file": key_path
+                })
+    return render_template("list.html", certs=certs)
+
 @app.route("/download/<path:filename>")
 def download_file(filename):
     # Der Download-Pfad muss ebenfalls angepasst werden
@@ -45,7 +61,4 @@ def download_file(filename):
     return send_file(full_path, as_attachment=True)
 
 if __name__ == "__main__":
-    if not os.access(SCRIPT_PATH, os.X_OK):
-        os.chmod(SCRIPT_PATH, 0o755)
-    
     app.run(debug=True)
