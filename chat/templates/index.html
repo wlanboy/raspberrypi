@@ -53,8 +53,9 @@
         <div id="chat-box">
             </div>
         <form id="chat-form">
-            <input type="text" id="message-input" placeholder="Nachricht eingeben..." required>
+            <textarea id="message-input" placeholder="Nachricht eingeben..." rows="2" required></textarea>
             <button type="submit">Senden</button>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
         </form>
     </div>
 </body>
