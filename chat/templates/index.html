@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Einfacher Chat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='socket.io.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const socket = io();
+
+            const form = document.getElementById('chat-form');
+            const input = document.getElementById('message-input');
+            const chatBox = document.getElementById('chat-box');
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (input.value) {
+                    socket.emit('message', input.value);
+                    input.value = '';
+                }
+            });
+
+            socket.on('message', (data) => {
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('chat-message');
+                messageElement.innerHTML = `
+                    <span class="username">${data.username}:</span>
+                    <span class="message">${data.message}</span>
+                `;
+                chatBox.appendChild(messageElement);
+                chatBox.scrollTop = chatBox.scrollHeight; // Scrollt automatisch nach unten
+            });
+
+            // Lade den initialen Chat-Verlauf
+            const initialChatHistory = {{ chat_history | tojson }};
+            initialChatHistory.forEach(data => {
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('chat-message');
+                messageElement.innerHTML = `
+                    <span class="username">${data.username}:</span>
+                    <span class="message">${data.message}</span>
+                `;
+                chatBox.appendChild(messageElement);
+            });
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+    </script>
+</head>
+<body class="dark-mode">
+    <div class="container">
+        <h2>Einfacher Chat</h2>
+        <div id="chat-box">
+            </div>
+        <form id="chat-form">
+            <input type="text" id="message-input" placeholder="Nachricht eingeben..." required>
+            <button type="submit">Senden</button>
+        </form>
+    </div>
+</body>
+</html>

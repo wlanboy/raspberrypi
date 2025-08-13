@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Anmelden</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="dark-mode">
+    <div class="container">
+        <h1>Wähle deinen Namen</h1>
+        <form method="POST">
+            {% if error %}
+                <p class="error">{{ error }}</p>
+            {% endif %}
+            <input type="text" name="username" placeholder="Dein Name" required>
+            <button type="submit">Chat beitreten</button>
+        </form>
+    </div>
+</body>
+</html>
