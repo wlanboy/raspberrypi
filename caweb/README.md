@@ -20,3 +20,13 @@ uv run main.py
 - uv add waitress
 - uv sync
 - uv run main.pys
+
+## Docker build
+```
+docker build -t caweb .
+```
+
+## Docker run
+```
+docker run -p 2000:5000 -v /local-ca:/local-ca caweb
+```
