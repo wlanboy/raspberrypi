@@ -14,8 +14,9 @@ uv run main.py
 ### from scratch
 - uv init chat
 - cd chat
-- uv pip install -r requirements.txt
 - uv sync
+- uv pip compile pyproject.toml -o requirements.txt
+- uv pip install -r requirements.txt
 - uv run main.pys
 
 ## Docker build
