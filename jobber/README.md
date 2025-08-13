@@ -28,10 +28,16 @@ docker build -t jobs .
 
 ## Docker run
 ```
-docker run -p 2100:2100 jobs
+docker run --rm -p 3300:3300 \
+   -v job-manager-db:/app/data \
+   -v /var/run/docker.sock:/var/run/docker.sock \
+   jobs
 ```
 
 ## Docker run daemon
 ```
-docker run --name jobs -d -p 2100:2100 --restart unless-stopped jobs
+docker run --name jobs -d -p 3300:3300 \
+   -v job-manager-db:/app/data \
+   -v /var/run/docker.sock:/var/run/docker.sock \
+   --restart unless-stopped jobs
 ```
