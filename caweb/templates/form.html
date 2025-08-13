@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSL-Zertifikat erstellen</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            color: #333;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body.dark-mode {
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+        .container {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+        .container.dark-mode {
+            background-color: #1e1e1e;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .container.dark-mode h1 {
+            color: #e0e0e0;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            background-color: #f9f9f9;
+            color: #333;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+        }
+        .container.dark-mode input[type="text"] {
+            background-color: #2c2c2c;
+            border-color: #444;
+            color: #e0e0e0;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+        }
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .toggle-theme {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .toggle-theme svg {
+            fill: #333;
+            transition: fill 0.3s;
+        }
+        body.dark-mode .toggle-theme svg {
+            fill: #e0e0e0;
+        }
+        p {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: -0.5rem;
+        }
+        .container.dark-mode p {
+            color: #a0a0a0;
+        }
+    </style>
+</head>
+<body>
+    <button class="toggle-theme" id="theme-toggle" aria-label="Toggle dark mode">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2.25v2.25a7.5 7.5 0 0 1 0 15v2.25c6.627 0 12-5.373 12-12s-5.373-12-12-12zm0 15a5.25 5.25 0 1 0 0-10.5 5.25 5.25 0 0 0 0 10.5z"/></svg>
+    </button>
+    <div class="container" id="main-container">
+        <h1>SSL-Zertifikat erstellen 🔒</h1>
+        <form method="POST">
+            <label for="hostname">Hostname (CN)</label>
+            <input type="text" id="hostname" name="hostname" placeholder="z.B. homeassistant.lan" required>
+            
+            <label for="alt_names">Alternative Namen (SANs)</label>
+            <input type="text" id="alt_names" name="alt_names" placeholder="z.B. www.homeassistant.lan, api.homeassistant.lan (optional)">
+            <p>Trennen Sie mehrere Namen durch Kommas.</p>
+            
+            <button type="submit">Zertifikat erstellen</button>
+        </form>
+    </div>
+
+    <script>
+        const toggle = document.getElementById('theme-toggle');
+        const body = document.body;
+        const container = document.getElementById('main-container');
+
+        // Check for saved preference or system preference
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark' || (savedTheme === null && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            body.classList.add('dark-mode');
+            container.classList.add('dark-mode');
+        }
+
+        toggle.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            container.classList.toggle('dark-mode');
+            if (body.classList.contains('dark-mode')) {
+                localStorage.setItem('theme', 'dark');
+            } else {
+                localStorage.setItem('theme', 'light');
+            }
+        });
+    </script>
+</body>
+</html>
