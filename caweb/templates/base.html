@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SSL-Zertifikatstool{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <button class="toggle-theme" id="theme-toggle" aria-label="Toggle dark mode">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2.25v2.25a7.5 7.5 0 0 1 0 15v2.25c6.627 0 12-5.373 12-12s-5.373-12-12-12zm0 15a5.25 5.25 0 1 0 0-10.5 5.25 5.25 0 0 0 0 10.5z"/></svg>
+    </button>
+
+    {% block content %}
+    {% endblock %}
+
+    <script>
+        const toggle = document.getElementById('theme-toggle');
+        const body = document.body;
+        const container = document.getElementById('main-container');
+
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark' || (savedTheme === null && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            body.classList.add('dark-mode');
+            container.classList.add('dark-mode');
+        }
+
+        toggle.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            container.classList.toggle('dark-mode');
+            if (body.classList.contains('dark-mode')) {
+                localStorage.setItem('theme', 'dark');
+            } else {
+                localStorage.setItem('theme', 'light');
+            }
+        });
+    </script>
+</body>
+</html>
