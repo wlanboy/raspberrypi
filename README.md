@@ -22,5 +22,5 @@ Raspberry Pi setup projects
 
 ## create own ca for your homelab
 * [Create local offline ca and trust it on all servers and pcs](https://github.com/wlanboy/raspberrypi/blob/main/ca/readme.md)
-* [Install Certmanager on your k3s cluster using your own ca](https://github.com/wlanboy/raspberrypi/blob/main/ca/cert-manager/readme.md).
+* [Install Certmanager on your k3s cluster using your own ca](https://github.com/wlanboy/raspberrypi/blob/main/ca/cert-manager/readme.md)
 * [Simple python based web ui for generation ssl certs for your hosts](https://github.com/wlanboy/raspberrypi/blob/main/caweb/README.md)
