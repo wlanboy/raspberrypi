@@ -1,17 +1,22 @@
 import sqlite3
 import subprocess
 import time
+import os
 from flask import Flask, render_template, request, redirect, url_for, session, g
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_job'  # Wichtig für Sessions!
 
-DATABASE = 'jobs.db'
+DATABASE_DIR = 'data'
+DATABASE = os.path.join(DATABASE_DIR, 'jobs.db')
 
 def get_db_connection():
     """Stellt eine Verbindung zur Datenbank her und gibt sie zurück."""
     db = getattr(g, '_database', None)
     if db is None:
+        # Stellen Sie sicher, dass das Verzeichnis existiert, bevor die Verbindung hergestellt wird
+        if not os.path.exists(DATABASE_DIR):
+            os.makedirs(DATABASE_DIR)
         db = g._database = sqlite3.connect(DATABASE)
         db.row_factory = sqlite3.Row  # Ermöglicht den Zugriff auf Spalten per Name
     return db
@@ -192,6 +197,8 @@ def status_page():
     db = get_db_connection()
     all_jobs = db.execute('SELECT * FROM jobs ORDER BY last_run_start_time DESC').fetchall()
     return render_template('status.html', all_jobs=all_jobs)
+
+create_table()
 
 if __name__ == '__main__':
     create_table()
