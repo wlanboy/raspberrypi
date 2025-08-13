@@ -30,3 +30,8 @@ docker build -t caweb .
 ```
 docker run -p 2000:5000 -v /local-ca:/local-ca caweb
 ```
+
+## Docker run daemon
+```
+docker run --name caweb -d -p 2000:5000 -v /local-ca:/local-ca --restart unless-stopped caweb
+```
