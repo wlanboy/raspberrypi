@@ -22,4 +22,4 @@ EXPOSE 2000
 
 # Startbefehl für die Anwendung
 #CMD ["python", "main.py"]
-CMD ["waitress-serve", "--listen=0.0.0.0:5000", "main:app"]
+CMD ["waitress-serve", "--listen=0.0.0.0:2000", "main:app"]
