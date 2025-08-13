@@ -38,9 +38,22 @@
                     <code>{{ job.docker_command }}</code>
                 </div>
             </div>
-            <form action="{{ url_for('delete_job', job_id=job.id) }}" method="post" class="delete-form">
-                <button type="submit" class="delete-button">Löschen</button>
-            </form>
+            <div class="job-actions">
+                <form action="{{ url_for('run_job', job_id=job.id) }}" method="post" class="run-form">
+                    <button type="submit" class="run-button">Ausführen</button>
+                </form>
+                <form action="{{ url_for('delete_job', job_id=job.id) }}" method="post" class="delete-form">
+                    <button type="submit" class="delete-button">Löschen</button>
+                </form>
+            </div>
+            {% if job.last_run_start_time %}
+            <div class="job-output-details">
+                <div class="run-info">
+                    Letzter Lauf: {{ job.last_run_start_time }} | Dauer: {{ "%.2f"|format(job.last_run_duration) }}s
+                </div>
+                <pre class="job-output"><code>{{ job.last_run_output }}</code></pre>
+            </div>
+            {% endif %}
         </li>
         {% endfor %}
     </ul>
