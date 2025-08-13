@@ -19,6 +19,8 @@ uv run main.py
 - uv add flask
 - uv add waitress
 - uv sync
+- uv pip compile pyproject.toml -o requirements.txt
+- uv pip install -r requirements.txt
 - uv run main.pys
 
 ## Docker build
