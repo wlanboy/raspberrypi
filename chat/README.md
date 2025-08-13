@@ -26,7 +26,7 @@ docker build -t chat .
 
 ## Docker run
 ```
-docker run -p 2000:2000 chat
+docker run --rm -p 2000:2000 chat
 ```
 
 ## Docker run daemon

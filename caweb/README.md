@@ -30,7 +30,7 @@ docker build -t caweb .
 
 ## Docker run
 ```
-docker run -p 2000:2000 -v /local-ca:/local-ca caweb
+docker run --rm -p 2000:2000 -v /local-ca:/local-ca caweb
 ```
 
 ## Docker run daemon
