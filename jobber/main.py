@@ -66,7 +66,7 @@ def logout():
     session.pop('username', None)
     return redirect(url_for('login'))
 
-@app.route('/jobs', methods=['GET', 'POST'])
+@app.route('/jobs')
 def jobs_page():
     if 'username' not in session:
         return redirect(url_for('login'))
@@ -74,7 +74,20 @@ def jobs_page():
     current_user = session['username']
     db = get_db_connection()
 
-    # Formular zum Hinzufügen eines neuen Jobs verarbeiten
+    # Alle Jobs für den aktuellen Benutzer abrufen
+    cursor = db.execute('SELECT * FROM jobs WHERE creator = ?', (current_user,))
+    user_jobs = cursor.fetchall()
+    
+    return render_template('jobs.html', username=current_user, user_jobs=user_jobs)
+
+@app.route('/create_job', methods=['GET', 'POST'])
+def create_job():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+        
+    current_user = session['username']
+    db = get_db_connection()
+    
     if request.method == 'POST':
         job_name = request.form.get('job_name')
         docker_image = request.form.get('docker_image')
@@ -91,13 +104,14 @@ def jobs_page():
                 (current_user, job_name, docker_image, optional_params, docker_command)
             )
             db.commit()
-            return redirect(url_for('jobs_page'))
 
-    # Alle Jobs für den aktuellen Benutzer abrufen
-    cursor = db.execute('SELECT * FROM jobs WHERE creator = ?', (current_user,))
-    user_jobs = cursor.fetchall()
+            # Alle Jobs für den aktuellen Benutzer abrufen
+            cursor = db.execute('SELECT * FROM jobs WHERE creator = ?', (current_user,))
+            user_jobs = cursor.fetchall()
+
+            return redirect(url_for('jobs_page'))
     
-    return render_template('jobs.html', username=current_user, user_jobs=user_jobs)
+    return render_template('create_job.html', username=current_user)
 
 @app.route('/delete_job/<int:job_id>', methods=['POST'])
 def delete_job(job_id):
@@ -170,6 +184,14 @@ def run_job(job_id):
     
     return redirect(url_for('jobs_page'))
 
+@app.route('/status')
+def status_page():
+    """
+    Zeigt eine Statusseite mit allen Jobs, ihren letzten Laufzeiten und Ausgaben an.
+    """
+    db = get_db_connection()
+    all_jobs = db.execute('SELECT * FROM jobs ORDER BY last_run_start_time DESC').fetchall()
+    return render_template('status.html', all_jobs=all_jobs)
 
 if __name__ == '__main__':
     create_table()
