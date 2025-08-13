@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="header">
+    <h2>Willkommen, {{ username }}</h2>
+    <a href="{{ url_for('logout') }}" class="logout-button">Abmelden</a>
+</div>
+
+<div class="job-section">
+    <h3>Neuen Job erstellen</h3>
+    <form method="post" class="job-form">
+        <label for="job_name">Job-Name:</label>
+        <input type="text" id="job_name" name="job_name" required>
+
+        <label for="docker_image">Docker-Image:</label>
+        <input type="text" id="docker_image" name="docker_image" required>
+
+        <label for="optional_params">Optionale Parameter:</label>
+        <input type="text" id="optional_params" name="optional_params">
+
+        <button type="submit">Job hinzufügen</button>
+    </form>
+</div>
+
+<div class="job-list-container">
+    <h3>Ihre Jobs</h3>
+    {% if user_jobs %}
+    <ul class="job-list">
+        {% for job in user_jobs %}
+        <li class="job-item">
+            <div class="job-details">
+                <div class="job-name">Job-Name: {{ job.name }}</div>
+                <div class="job-detail">Docker-Image: {{ job.image }}</div>
+                <div class="job-detail">Erstellt von: {{ job.creator }}</div>
+                {% if job.params %}
+                <div class="job-detail">Parameter: {{ job.params }}</div>
+                {% endif %}
+                <div class="docker-command-note">
+                    <code>{{ job.docker_command }}</code>
+                </div>
+            </div>
+            <form action="{{ url_for('delete_job', job_id=job.id) }}" method="post" class="delete-form">
+                <button type="submit" class="delete-button">Löschen</button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>Sie haben noch keine Jobs erstellt.</p>
+    {% endif %}
+</div>
+{% endblock %}
