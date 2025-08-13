@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block title %}Vorhandene Zertifikate{% endblock %}
+
+{% block content %}
+<div class="container results" id="main-container">
+    <h1>Vorhandene Zertifikate</h1>
+    <div class="certs-list">
+        {% if certs %}
+            {% for cert in certs %}
+                <div class="cert-card">
+                    <p class="cert-hostname">🔒 {{ cert.hostname }}</p>
+                    <div class="download-links">
+                        <a href="/download/{{ cert.cert_file }}" class="download-link" download>Zertifikat (.crt)</a>
+                        <a href="/download/{{ cert.key_file }}" class="download-link" download>Schlüssel (.key)</a>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p class="no-certs">Es wurden noch keine Zertifikate erstellt.</p>
+        {% endif %}
+    </div>
+    <div class="back-button-container">
+        <a href="/" class="back-button">Neues Zertifikat erstellen</a>
+    </div>
+</div>
+{% endblock %}
