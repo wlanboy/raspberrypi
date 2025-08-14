@@ -33,13 +33,15 @@ def list_users():
     users = []
     for line in output.split('\n'):
         parts = line.split()
-        if len(parts) == 2:
+        if len(parts) >= 2:
             users.append(parts[1])
     return users
 
 def list_buckets():
     output = run_mc_command([MC_BINARY, "ls", MINIO_ALIAS])
     return [line.strip().split()[-1] for line in output.split('\n') if line.strip() and not line.startswith("mc: <") and not line.startswith("mc: ERROR")]
+
+setup_mc_alias()
 
 @app.route("/", methods=["GET", "POST"])
 def index():
