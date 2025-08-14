@@ -1,0 +1,18 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "uv: run active file",
+      "type": "shell",
+      "command": "uv",
+      "args": ["run", "${fileBasename}"],
+      "options": {
+        // Run in the file's directory so imports and relative paths work
+        "cwd": "${fileDirname}"
+      },
+      "problemMatcher": [],
+      // Make this the default task so you can press Ctrl+Shift+B
+      "group": { "kind": "build", "isDefault": true }
+    }
+  ]
+}
