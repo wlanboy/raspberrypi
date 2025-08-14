@@ -20,6 +20,10 @@ Raspberry Pi setup projects
 * [Run mariadb with docker](https://github.com/wlanboy/raspberrypi/blob/main/mariadb-in-docker.md)
 * [Create ARM64 based k3s kubernets cluster](https://github.com/wlanboy/raspberrypi/blob/main/k3s-cluster.md)
 
+## helper web uis
+* [Web Access for Minio Community Edition (users and buckets)](https://github.com/wlanboy/raspberrypi/tree/main/minioaccess/README.md)
+* [Web UI to manage docker run commands and save their last result](https://github.com/wlanboy/raspberrypi/tree/main/jobber/README.md)
+
 ## create own ca for your homelab
 * [Create local offline ca and trust it on all servers and pcs](https://github.com/wlanboy/raspberrypi/blob/main/ca/readme.md)
 * [Install Certmanager on your k3s cluster using your own ca](https://github.com/wlanboy/raspberrypi/blob/main/ca/cert-manager/readme.md)
