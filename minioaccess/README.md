@@ -43,5 +43,5 @@ docker run --rm -p 9002:9002 -e MINIO_ACCESS_KEY=$MINIO_ACCESS_KEY -e MINIO_SECR
 
 ## Docker run daemon 
 ```
-docker run --name jobs -d -p 9002:9002 -e MINIO_ACCESS_KEY=$MINIO_ACCESS_KEY -e MINIO_SECRET_KEY=$MINIO_SECRET_KEY --restart unless-stopped minioweb
+docker run --name jobs -d -p 9002:9002 -e MINIO_ACCESS_KEY=$MINIO_ACCESS_KEY -e MINIO_SECRET_KEY=$MINIO_SECRET_KEY --restart unless-stopped wlanboy/minioweb
 ```
