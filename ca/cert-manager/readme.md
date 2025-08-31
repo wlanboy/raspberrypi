@@ -23,6 +23,11 @@ cert-manager jetstack/cert-manager \
 
 ## Set secret
 ```
+kubectl create secret tls my-local-ca-secret \
+--namespace cert-manager \
+--cert=/local-ca/ca.pem \
+--key=/local-ca/ca.key
+
 cat <<EOF | kubectl apply -f -
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
