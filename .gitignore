@@ -2,3 +2,4 @@
 jobber/jobs.db
 jobber/data/jobs.db
 minioaccess/mc
+ca/external-ca/injector-patch.yaml
