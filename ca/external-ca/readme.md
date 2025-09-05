@@ -33,8 +33,18 @@ volumeMounts:
 
 ## or use the istio annotions within your deployment
 ```
-metadata:
-  annotations:
-    sidecar.istio.io/userVolume: '[{"name":"external-ca","secret":{"secretName":"external-ca"}}]'
-    sidecar.istio.io/userVolumeMount: '[{"name":"external-ca","mountPath":"/etc/external-ca","readOnly":true}]'
+apiVersion: apps/v1
+kind: Deployment
+...
+spec:
+  template:
+    metadata:
+      labels:
+        app: tester
+      annotations:
+        sidecar.istio.io/userVolume: |
+          [{"name":"external-ca","secret":{"secretName":"external-ca"}}]
+        sidecar.istio.io/userVolumeMount: |
+          [{"name":"external-ca","mountPath":"/etc/external-ca","readOnly":true}]
+...
 ```
