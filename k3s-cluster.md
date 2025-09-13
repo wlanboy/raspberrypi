@@ -20,7 +20,19 @@ sudo systemctl disable dphys-swapfile
 ## install k3s without traefik and servicelb and define the exteral ip
 ```
 PUBLIC_IP="192.168.178.22"
+
 curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" INSTALL_K3S_CHANNEL=stable INSTALL_K3S_EXEC="--disable=traefik --disable=servicelb --node-external-ip=${PUBLIC_IP}" sh -
+sudo cp /var/lib/rancher/k3s/server/node-token ~/token
+sudo chown $USER:$USER ~/token
+```
+
+## add agend to cluster
+```
+TOKEN_FILE=~/token
+K3S_TOKEN=$(cat "$TOKEN_FILE")
+
+curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" INSTALL_K3S_CHANNEL=stable INSTALL_K3S_EXEC="--node-external-ip=192.168.178.68" K3S_URL=https://gmk:6443 K3S_TOKEN=$K3S_TOKEN sh -
+
 ```
 
 ## copy kube config
