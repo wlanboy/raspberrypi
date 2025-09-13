@@ -89,6 +89,6 @@ kubectl get all -A
 
 ## uninstall k3s
 ```
-/usr/local/bin/k3s-uninstall.sh
+sudo /usr/local/bin/k3s-uninstall.sh
 ```
 
