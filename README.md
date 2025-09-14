@@ -19,6 +19,7 @@ Raspberry Pi setup projects
 * [Run minio with docker](https://github.com/wlanboy/raspberrypi/blob/main/minio.md)
 * [Run mariadb with docker](https://github.com/wlanboy/raspberrypi/blob/main/mariadb-in-docker.md)
 * [Create ARM64 based k3s kubernets cluster](https://github.com/wlanboy/raspberrypi/blob/main/k3s-cluster.md)
+* [Install and use Tekton in k3s kubernets cluster](https://github.com/wlanboy/raspberrypi/blob/main/tekton/readme.md)
 
 ## helper web uis
 * [Web Access for Minio Community Edition (users and buckets)](https://github.com/wlanboy/raspberrypi/tree/main/minioaccess/README.md)
