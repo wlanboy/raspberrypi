@@ -1,17 +1,20 @@
 # Create share for windows clients
 
 ## install dependencies
-```
+
+```bash
 sudo apt-get install samba samba-common-bin
 ```
 
 ## add samba password for windows user
-```
+
+```bash
 sudo smbpasswd -a your-user-name
 ```
 
 ## create share
-```
+
+```bash
 cat >> /etc/samba/smb.conf<< EOF
 # NAS Share
 [ship]
@@ -27,7 +30,8 @@ EOF
 ```
 
 ## test config and restart samba service
-```
+
+```bash
 sudo testparm
 sudo systemctl enable smbd
 sudo systemctl restart smbd

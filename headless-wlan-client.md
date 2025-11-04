@@ -2,12 +2,14 @@
 (mount sd card)
 
 ## enable ssh accress
-```
+
+```bash
 touch /boot/ssh
 ```
 
 ## provide wlan client configuration
-```
+
+```bash
 cat > /boot/wpa_supplicant.conf<< EOF
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 update_config=1

@@ -2,7 +2,8 @@
 https://gitea.com/
 
 ## create service user
-```
+bash
+```bash
 adduser --system --shell /bin/bash --gecos 'Git Version Control' --group --disabled-password --home /home/git git
 
 sudo mkdir /gitea
@@ -11,14 +12,16 @@ sudo chmod 775 -R /gitea
 ```
 
 ## install service
-```
+
+```bash
 cd /gitea
 wget -O gitea https://dl.gitea.io/gitea/1.14.6/gitea-1.14.6-linux-arm-6
 chmod +x gitea 
 ```
 
 ## create service
-```
+
+```bash
 cat > /etc/systemd/system/gitea.service<< EOF
 [Unit]
 Description=Gitea (Git with a cup of tea)
@@ -41,7 +44,8 @@ EOF
 ```
 
 ## enable and start gitea service
-```
+
+```bash
 systemctl enable gitea
 systemctl restart gitea
 ```

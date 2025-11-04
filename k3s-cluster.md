@@ -4,13 +4,13 @@
 - See: https://github.com/wlanboy/raspberrypi/blob/main/docker.md
 
 ## change boot cmd line
-```
+```bash
 sudo nano /boot/firmware/cmdline.txt
 #add cgroup_memory=1 cgroup_enable=memory
 ```
 
 ## swap files and ip tables
-```
+```bash
 sudo apt install -y iptables
 sudo dphys-swapfile swapoff
 sudo dphys-swapfile uninstall
@@ -18,7 +18,7 @@ sudo systemctl disable dphys-swapfile
 ```
 
 ## install k3s without traefik and servicelb and define the exteral ip
-```
+```bash
 PUBLIC_IP="192.168.178.22"
 
 curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" INSTALL_K3S_CHANNEL=stable INSTALL_K3S_EXEC="--disable=traefik --disable=servicelb --node-external-ip=${PUBLIC_IP}" sh -
@@ -27,7 +27,7 @@ sudo chown $USER:$USER ~/token
 ```
 
 ## add agend to cluster
-```
+```bash
 TOKEN_FILE=~/token
 scp gmk:~/token $TOKEN_FILE
 K3S_TOKEN=$(cat "$TOKEN_FILE")
@@ -37,14 +37,14 @@ curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" INSTALL_K3S_CHANNEL=sta
 ```
 
 ## copy kube config
-```
+```bash
 mkdir ~/.kube
 sudo cp -i /etc/rancher/k3s/k3s.yaml ~/.kube/config
 sudo chown $USER:$USER ~/.kube/config
 ```
 
 ## install kubectl
-```
+```bash
 cd ~
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl"
 chmod +x ./kubectl
@@ -52,7 +52,8 @@ sudo cp ./kubectl /usr/bin
 ```
 
 ## install metallb 
-```
+
+```bash
 cd ~
 cat > metallb-pool.yaml <<EOF
 ---
@@ -86,7 +87,7 @@ kubectl apply -f metallb-adv.yaml
 ## check cluster
 ```
 kubectl get all -A
-
+```
 
 ## uninstall k3s
 ```

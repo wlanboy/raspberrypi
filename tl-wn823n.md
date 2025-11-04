@@ -1,17 +1,20 @@
 # TP Link TL-WN823N
-```
+
+```bash
 uname -a
 Linux raspberrypione 5.10.17+ #1421 Thu May 27 13:58:02 BST 2021 armv6l GNU/Linux
 ```
 
 # usb info
-```
+
+```bash
 sudo lsusb
 Bus 001 Device 004: ID xxxx:yyyy Realtek Semiconductor Corp. RTL8192CU 802.11n WLAN Adapter
 ```
 
 # network device info
-```
+
+```bash
 sudo lshw -C network
   *-network
        description: Wireless interface
@@ -24,7 +27,8 @@ sudo lshw -C network
 ```
 
 # module information
-```
+
+```bash
 sudo modinfo rtl8192cu
 filename:       /lib/modules/5.10.17+/kernel/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/rtl8192cu.ko
 firmware:       rtlwifi/rtl8192cufw_TMSC.bin

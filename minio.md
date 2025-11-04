@@ -11,14 +11,14 @@ Before you begin, ensure that the following prerequisites are met:
 
 ## 1. Create Directory for MinIO Data
 
-```
+```bash
 sudo mkdir -p /minio/data
 sudo chown -R $USER:docker /minio/data
 ```
 
 ## 2. Start minio
 
-```
+```bash
 docker run -p 9000:9000 -p 9001:9001 \
   --name minio \
   -v ~/minio/data:/data \

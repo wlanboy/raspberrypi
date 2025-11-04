@@ -1,22 +1,27 @@
 # Create bluetooth serial console
 
 ## install tools
-```
+
+```bash
 sudo apt install bluetooth rfkill bluez bluez-tools 
 ```
 
 ## change bluetooth settings
-```
+
+```bash
 sudo nano /lib/systemd/system/bluetooth.service
 ```
+
 changes:
-```
+
+```bash
 ExecStart=/usr/lib/bluetooth/bluetoothd -C
 ExecStartPost=/usr/bin/sdptool add SP
 ```
 
 ## create rfcomm service
-```
+
+```bash
 sudo cat > /etc/systemd/system/rfcomm.service<< EOF
 [Unit]
 Description=Bluetooth service
@@ -38,7 +43,8 @@ EOF
 ```
 
 ## apply changes
-```
+
+```bash
 sudo systemctl daemon-reload
 sudo systemctl restart bluetooth
 sudo systemctl enable rfcomm
@@ -46,7 +52,8 @@ sudo systemctl restart rfcomm
 ```
 
 ## create connection with desktop
-```
+
+```bash
 bluetoothctl 
 ------------ commands to type in:
 power on

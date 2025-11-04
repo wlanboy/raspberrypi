@@ -17,11 +17,12 @@
 * check for modules in https://downloads.openwrt.org/releases/21.02.1/targets/bcm27xx/bcm2708/packages/ (raspberrz pi 1)
 
 ## usb troubleshooting
-```
+
+```bash
 opkg update && opkg install usbutils && lsusb -t
 ```
 and
-```
+```bash
 cat /sys/kernel/debug/usb/devices
 ```
 
