@@ -32,4 +32,4 @@ Raspberry Pi setup projects
 
 ## tools
 * [Python tool to call git pull on all subdirs of a given directory](https://github.com/wlanboy/raspberrypi/blob/main/tools/git_pull_all.py)
-* [Python tool to for git repros of a given directory](https://github.com/wlanboy/raspberrypi/blob/main/tools/scan_git_repros.py)
+* [Python tool to for git repros of a given directory](https://github.com/wlanboy/raspberrypi/blob/main/tools/scan_git_repos.py)
