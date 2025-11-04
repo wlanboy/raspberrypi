@@ -31,4 +31,5 @@ Raspberry Pi setup projects
 * [Simple python based web ui for generation ssl certs for your hosts](https://github.com/wlanboy/raspberrypi/blob/main/caweb/README.md)
 
 ## tools
-* [Python tool to call git pull on all subdirs of a given directory](https://github.com/wlanboy/raspberrypi/blob/main/tools.git_pull_all.py)
+* [Python tool to call git pull on all subdirs of a given directory](https://github.com/wlanboy/raspberrypi/blob/main/tools/git_pull_all.py)
+* [Python tool to for git repros of a given directory](https://github.com/wlanboy/raspberrypi/blob/main/tools/scan_git_repros.py)
