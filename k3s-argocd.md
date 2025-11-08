@@ -15,6 +15,9 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.14.0/deploy/static/provider/baremetal/deploy.yaml
 ```
 
+## howto install cert-manager
+see: https://github.com/wlanboy/raspberrypi/tree/main/ca/cert-manager
+
 ## Create the TLS Certificate with cert-manager
 ```bash
 kubectl apply -f - <<EOF
