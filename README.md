@@ -26,7 +26,7 @@ Raspberry Pi setup projects
 * [Web UI to manage docker run commands and save their last result](https://github.com/wlanboy/raspberrypi/tree/main/jobber/README.md)
 
 ## create own ca for your homelab
-* [Create local offline ca and trust it on all servers and pcs](https://github.com/wlanboy/raspberrypi/blob/main/ca/readme.md)
+* Create local offline ca and trust it on all servers and workstations: https://github.com/wlanboy/caweb
 * [Install Certmanager on your k3s cluster using your own ca](https://github.com/wlanboy/raspberrypi/blob/main/ca/cert-manager/readme.md)
 * [Simple python based web ui for generation ssl certs for your hosts](https://github.com/wlanboy/raspberrypi/blob/main/caweb/README.md)
 
