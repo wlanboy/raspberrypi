@@ -21,7 +21,7 @@ uv run main.py
 - uv sync
 - uv pip compile pyproject.toml -o requirements.txt
 - uv pip install -r requirements.txt
-- uv run main.pys
+- uv run main.py
 
 ## Docker build
 ```
