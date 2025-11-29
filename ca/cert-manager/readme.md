@@ -47,7 +47,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: my-test-certificate
-  namespace: default
+  namespace: istio-system
 spec:
   secretName: my-test-certificate-secret
   duration: 2160h # 90d
