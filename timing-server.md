@@ -1,4 +1,8 @@
-# get a gps module
+# Linux timing server with gps source
+How to build your own ntp server which is using a usb gsp module as timing source.
+
+
+## get a gps module
 GPS-Modul VK-162 with TCXO EEPROM
 
 ## install tools
