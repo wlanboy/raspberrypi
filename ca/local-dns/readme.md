@@ -1,4 +1,5 @@
 # use local pihole dns server in k3s
+How to change DNS servers in Ubuntu and k3s cluster running on Ubuntu.
 
 ## prepare resolve config of all nodes
 ```
