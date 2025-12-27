@@ -1,4 +1,5 @@
-# Create share for windows clients
+# Create smb share for windows clients
+Commands to create a smb share for windows clients on any linux pc.
 
 ## install dependencies
 
