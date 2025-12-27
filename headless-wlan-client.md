@@ -1,5 +1,5 @@
 # headless configuration of wlan client
-(mount sd card)
+Mount sd card on your pc and change following settings to enable ssh daemon and wlan login for your Raspberry Pi.
 
 ## enable ssh accress
 
