@@ -1,4 +1,6 @@
 # Create tor service
+Commands to setup torrc and provide a tor service on your own risk.
+
 
 ## dependencies
 
