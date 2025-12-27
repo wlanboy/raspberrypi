@@ -1,4 +1,5 @@
 # simple local chat
+Simple Python based websocket chat example for fun.
 
 ## get uv - makes python life easier
 ```
