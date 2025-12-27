@@ -1,4 +1,6 @@
 # Wlan Access Point with Adblocker
+How to install a wlan access point with dhcp server and ad blocker on your Raspberry Pi or Linux server.
+
 
 ## install dependencies
 
