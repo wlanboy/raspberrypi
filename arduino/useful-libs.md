@@ -1,4 +1,7 @@
-# Useful available Arduino libraries
+## Useful available Arduino libraries
+
+A list of useful and working Arduino libraries.
+
 ```
 Adafruit_BusIO
 Adafruit_GFX_Library
