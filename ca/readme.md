@@ -1,7 +1,5 @@
+#Create a Local Certificate Authority
 Creating a local Certificate Authority (CA) and using `acme.sh` with it is a great way to manage certificates for your homelab.
-
-## 1\. Create a Local Certificate Authority
-
 This section walks you through creating your own self-signed root CA certificate. This certificate will be used to sign other certificates for your local devices.
 
 1.  **Create a directory** to store your CA files and navigate into it.
