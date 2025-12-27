@@ -1,4 +1,5 @@
 # use tekton pipelines on k3s
+How to install tekton pipelines on your local kubernetes cluster. Including bugfixed for yet privilaged mode.
 
 ## create namespace
 ```bash
