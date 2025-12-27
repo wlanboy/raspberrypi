@@ -1,4 +1,5 @@
 # Switch to xfce4
+Commands to switch to xfce4 environment.
 
 ## install
 ```
