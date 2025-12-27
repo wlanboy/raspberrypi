@@ -1,4 +1,6 @@
 # Create bluetooth serial console
+Commands to create a bluetooth serial console to connect your phone via bluetooth to your linux pc.
+
 
 ## install tools
 
