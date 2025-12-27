@@ -1,4 +1,6 @@
 # trust for external ca
+Example to inject an external ca to Istio sidecars.
+
 See: https://preliminary.istio.io/latest/docs/reference/config/annotations/#SidecarUserVolume
 
 ## create namespace
