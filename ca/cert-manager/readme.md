@@ -1,4 +1,6 @@
 # Install cert-manager in k3s with local ca
+All kubectl commands to install and configure a cert manager with your own ca on any kubernetes cluster.
+
 
 ## cert-manager key and cert
 ```
