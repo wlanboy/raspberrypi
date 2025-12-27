@@ -1,4 +1,5 @@
 # TP Link TL-WN823N
+Information collection on hardware module.
 
 ```bash
 uname -a
