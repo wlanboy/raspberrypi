@@ -1,4 +1,5 @@
 # use cert-manager with istio ingress gateway
+Kubectl commands to install Istio, IngressGateway and a simple nginx based test service with certmanager issued certificate. 
 
 # istio basic install
 ```
