@@ -1,5 +1,5 @@
 # raspberrypi
-Raspberry Pi setup projects
+Raspberry Pi projects I am using for my own homelab.
 
 ## list of setup steps for usefull raspberry pi services
 * [Create your own offline CA for local ssl certs.](https://github.com/wlanboy/raspberrypi/blob/main/ca/readme.md)
