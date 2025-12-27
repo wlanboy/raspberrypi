@@ -1,4 +1,6 @@
 # Flash openwrt image to sd and boot your Raspberry Pi
+How to flash openwrt to an sd and setup USB LAN and WLAN adapters.
+
 
 ## check Raspberry Pi version
 * https://openwrt.org/toh/raspberry_pi_foundation/raspberry_pi#hardware_highlights
