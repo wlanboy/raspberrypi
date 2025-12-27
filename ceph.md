@@ -1,4 +1,5 @@
-# Step by stop ceph install
+# Local ceph install
+Commands to install a local ceph instance with loopback devices instead of real hard disks.
 
 ## packages
 
