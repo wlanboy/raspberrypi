@@ -1,5 +1,7 @@
 */__pycache__/*
-jobber/jobs.db
-jobber/data/jobs.db
 minioaccess/mc
-ca/external-ca/injector-patch.yaml
+raspberrypikernel/linux
+raspberrypikernel/mnt
+raspberrypikernel/output
+raspberrypikernel/rootfs
+raspberrypikernel/rpi-debian13.img
