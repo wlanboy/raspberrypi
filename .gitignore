@@ -1,7 +1,2 @@
 */__pycache__/*
 minioaccess/mc
-raspberrypikernel/linux
-raspberrypikernel/mnt
-raspberrypikernel/output
-raspberrypikernel/rootfs
-raspberrypikernel/rpi-debian13.img
