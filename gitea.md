@@ -2,7 +2,7 @@
 Install and run your own github like instance with gitea. 
 
 ## use docker-compose
-* https://github.com/wlanboy/raspberrypi/blob/main/gitea/docker.md
+* https://github.com/wlanboy/raspberrypi/blob/main/gitea/docker-compose.yml
 
 ## create service user
 bash
