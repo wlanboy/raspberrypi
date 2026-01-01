@@ -1,5 +1,8 @@
 # Git server with web frontend
-https://gitea.com/
+Install and run your own github like instance with gitea. 
+
+## use docker-compose
+* https://github.com/wlanboy/raspberrypi/blob/main/gitea/docker.md
 
 ## create service user
 bash
@@ -15,7 +18,9 @@ sudo chmod 775 -R /gitea
 
 ```bash
 cd /gitea
-wget -O gitea https://dl.gitea.io/gitea/1.14.6/gitea-1.14.6-linux-arm-6
+wget -O gitea https://dl.gitea.io/gitea/1.25.3/gitea-1.25.3-linux-arm-6
+#or
+wget -O gitea https://dl.gitea.io/gitea/1.25.3/gitea-1.25.3-linux-arm64
 chmod +x gitea 
 ```
 
