@@ -118,6 +118,9 @@ def main():
     
     # 1. Gitea Clean-up
     answer = input("❓ Alle Repos in Gitea-Org löschen? (ja/nein): ").strip().lower()
+    if answer == "": 
+        answer = "nein"
+    
     if answer == "ja":
         for r in get_gitea_repos():
             print(f"🗑 Lösche {r['name']}...")
