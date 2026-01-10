@@ -53,3 +53,52 @@ To confirm enp3s0 is a slave of br0:
 ```Bash
 bridge link show enp3s0
 ```
+
+## Network Topology
+```Plaintext
+                                     +-----------------------+
+                                     |       MikroTik        |
+                                     |    (Main Router)      |
+                                     +-----------+-----------+
+                                                 |
+                                                 | (Trunk/Uplink)
+                                                 |
+                                     +-----------+-----------+
+                                     |   VLAN-CAPABLE SWITCH |
+                                     |    (Core Switch)      |
+                                     +-----+-----------+-----+
+                                           |           |
+                 +-------------------------+           +-----------------------+
+                 | (Port: VLAN 10 Untagged)            (Port: VLAN 30 Untagged)|
+        +--------+----------+                                         +--------+----------+
+        |  SERVER NIC 1     |                                         |  SERVER NIC 2     |
+        |    (enp1s0)       |                                         |    (enp3s0)       |
+        +--------+----------+                                         +--------+----------+
+                 |                                                             |
+        +--------v----------+                                         +--------v----------+
+        | HOST OS SERVICES  |                                         |    BRIDGE (br0)   |
+        | (Docker, k3s, IP) |                                         |   (No Host IP)    |
+        +-------------------+                                         +--------+----------+
+                                                                               |
+                                                                      +--------v----------+
+                                                                      |    OPNSense VM    |
+                                       +------------------------------>  (Virtual FW)     |
+                                       |                              +--------+----------+
+                                       |                                       |
+                            +----------+----------+                   +--------v----------+
+                            | USB LAN ADAPTER     |                   |    VIRTUAL NIC    |
+                            | (Host dev pass)     |                   |      (vtnet0)     |
+                            +----------+----------+                   +-------------------+
+                                       |                                   (WAN Side)
+                                       | (LAN Side)
+                                       |
+                            +----------v----------+
+                            |   STANDARD SWITCH   |
+                            |    (Lab Switch)     |
+                            +---+-------------+---+
+                                |             |
+                        +-------v------+ +----v---------+
+                        | Raspberry Pi | | Raspberry Pi |
+                        | (Webserver)  | | (Git Server) |
+                        +--------------+ +--------------+
+```
