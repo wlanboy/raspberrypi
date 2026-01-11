@@ -52,6 +52,7 @@ virt-install \
   --disk path=/isos/opnsense.qcow2,size=20,bus=virtio \
   --cdrom /isos/OPNsense-25.7-dvd-amd64.iso \
   --network bridge=br0,model=virtio \
+  # OR Macvtap --network type=direct,source=enp3s0,source_mode=bridge,model=virtio \
   --hostdev 0bda:8153,type=usb \
   --graphics vnc,listen=0.0.0.0 \
   --boot hd,cdrom,menu=on \
