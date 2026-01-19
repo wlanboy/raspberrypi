@@ -1,4 +1,4 @@
-# 🚀 Pi-hole Installation via Script
+# Pi-hole Installation via Script
 This document describes how to create a flexible shell script that sets up a Pi-hole Docker container. You only need to pass the IP address of your server as an argument.
 
 ## 1\. Prerequisites

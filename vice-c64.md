@@ -20,7 +20,7 @@ libxaw7-dev libxmu-dev libxpm-dev libxext-dev
 
 ## Download sources
 ```bash
-wget ttps://sourceforge.net/projects/vice-emu/files/releases/vice-3.10.tar.gz
+wget https://sourceforge.net/projects/vice-emu/files/releases/vice-3.10.tar.gz
 tar xvf vice-3.10.tar.gz
 cd vice-3.10
 ```
