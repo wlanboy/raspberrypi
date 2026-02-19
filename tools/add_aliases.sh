@@ -7,6 +7,7 @@ declare -A ALIASES=(
     ["gm"]="python3 ~/git/raspberrypi/tools/mirror_git_repos.py ~/git"
     ["gs"]="python3 ~/git/raspberrypi/tools/git_status_all.py ~/git"
     ["gl"]="python3 ~/git/raspberrypi/tools/scan_git_repos.py ~/git"
+    ["gnm"]="python3 ~/git/raspberrypi/tools/gh-no-mirror.py"
 )
 
 FORCE=0
