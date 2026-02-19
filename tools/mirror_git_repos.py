@@ -117,7 +117,7 @@ def main():
     print("🚀 Starte Mirror-Sync...")
     
     # 1. Gitea Clean-up
-    answer = input("❓ Alle Repos in Gitea-Org löschen? (ja/nein): ").strip().lower()
+    answer = input("❓ Alle Repos in Gitea-Org löschen? (ja/[nein]): ").strip().lower()
     if answer == "": 
         answer = "nein"
     
