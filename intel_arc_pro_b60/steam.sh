@@ -7,3 +7,6 @@ flatpak install flathub com.valvesoftware.Steam
 sudo flatpak override com.valvesoftware.Steam --filesystem=/data/steam
 # Entzieht den Zugriff auf den spezifischen Pfad wieder
 #sudo flatpak override com.valvesoftware.Steam --nofilesystem=/data/steam
+
+sudo apt update
+sudo apt install steam-devices
