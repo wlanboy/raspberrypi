@@ -2,6 +2,7 @@ import json
 import os
 import datetime
 import unicodedata
+import argparse
 
 # Konfiguration
 SOURCE_FOLDER = os.path.expanduser('~/Downloads/Takeout/GoogleNotizen')  # Ordner mit den JSON Dateien
@@ -30,34 +31,36 @@ def sanitize_filename(name):
     return sanitized or "Unbenannte_Notiz"
 
 
-def json_to_markdown(data):
+def json_to_markdown(data, hedgedoc=False):
     title = data.get('title', '')
     created = convert_time(data.get('createdTimestampUsec', 0))
-    edited_usec = data.get('userEditedTimestampUsec', 0)  # 4. Bearbeitungsdatum
+    edited_usec = data.get('userEditedTimestampUsec', 0)
     labels = [l['name'] for l in data.get('labels', [])]
-    color = data.get('color', '')  # 5. Farbe
-    is_archived = data.get('isArchived', False)  # 3. Archiviert-Status
+    color = data.get('color', '')
+    is_archived = data.get('isArchived', False)
 
-    # Falls kein Titel vorhanden, nehme Erstellungsdatum als Titel
     if not title:
         title = f"Notiz_{created.replace(':', '-')}"
 
-    # 3. Archiviert als Tag
     if is_archived:
         labels.append('archiviert')
 
-    # 5. Farbe als Tag (wenn nicht Standard)
     if color and color.upper() != 'DEFAULT':
         labels.append(f'farbe:{color.lower()}')
 
     md_content = []
+
+    if hedgedoc and labels:
+        tag_line = " ".join([f"`{l}`" for l in labels])
+        md_content.append(f"###### tags: {tag_line}\n")
+
     md_content.append(f"# {title}\n")
 
     # Metadaten
     md_content.append(f"**Erstellt am:** {created}")
-    if edited_usec:  # 4.
+    if edited_usec:
         md_content.append(f"**Bearbeitet am:** {convert_time(edited_usec)}")
-    if labels:
+    if not hedgedoc and labels:
         md_content.append(f"**Tags:** #{' #'.join(labels)}")
     md_content.append("\n---\n")
 
@@ -82,7 +85,10 @@ def json_to_markdown(data):
 
 
 def main():
-    # 1. Bereits verwendete Dateinamen verfolgen (für Kollisions-Zähler)
+    parser = argparse.ArgumentParser(description='Google Keep JSON zu Markdown konvertieren')
+    parser.add_argument('--hedgedoc', action='store_true', help='HedgeDoc-kompatible Tag-Zeile verwenden')
+    args = parser.parse_args()
+
     used_names = {}
 
     for filename in sorted(os.listdir(SOURCE_FOLDER)):
@@ -103,7 +109,7 @@ def main():
                 if 'textContent' not in data and 'listContent' not in data and 'title' not in data:
                     continue
 
-                title, md_text = json_to_markdown(data)
+                title, md_text = json_to_markdown(data, hedgedoc=args.hedgedoc)
 
                 # 1. Dateiname säubern und Kollisionen vermeiden
                 safe_title = sanitize_filename(title)
