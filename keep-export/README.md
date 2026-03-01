@@ -129,9 +129,96 @@ uv run upload_to_hedgedoc.py
 
 ---
 
+### 4. `server.py`
+**Funktion:** FastAPI Web-Server zum Anzeigen und Durchsuchen von Markdown-Notizen
+
+**Was es tut:**
+- Startet einen lokalen Web-Server (FastAPI + Uvicorn)
+- Zeigt alle Markdown-Dateien in einer Web-Oberfläche an
+- Bietet Such- und Filterfunktion nach Titel und Inhalt
+- Extrahiert Metadaten (Titel, Erstellungsdatum, Tags)
+- Paginierung der Notizenliste (20 pro Seite)
+
+**Features:**
+- 📝 **Notizenliste:** Alle konvertierten Notizen werden mit Vorschau angezeigt
+- 🔍 **Suchfunktion:** Live-Suche in Titel und Inhalt
+- 🏷️ **Tags:** Zeigt alle Tags/Labels einer Notiz
+- 📅 **Datum:** Zeigt Erstellungsdatum sortiert nach neustem zuerst
+- 📄 **Preview:** 250 Zeichen Vorschau des Notizinhalts
+
+**Konfiguration:**
+```python
+NOTES_DIR = os.path.expanduser('~/Dokumente/markdown_notes')  # Quellordner
+# Server läuft auf Port 8000
+# Öffentlich erreichbar: http://0.0.0.0:8000
+```
+
+**API Endpoints:**
+
+| Endpoint | Methode | Beschreibung |
+|----------|---------|-------------|
+| `/` | GET | HTML-Webseite mit Index |
+| `/api/notes` | GET | Notizen-API mit Suche, Pagination |
+| `/static/*` | GET | Statische Dateien (CSS, JS) |
+
+**Query Parameter für `/api/notes`:**
+- `q` (optional): Suchstring (durchsucht Titel und Inhalt)
+- `page` (optional): Seitennummer, default: 1
+- `limit` (optional): Notizen pro Seite, default: 20
+
+**Beispiel API Calls:**
+```bash
+# Alle Notizen (Seite 1)
+curl http://localhost:8000/api/notes
+
+# Suche nach "Projekt"
+curl http://localhost:8000/api/notes?q=Projekt
+
+# Seite 2 mit 10 Notizen pro Seite
+curl http://localhost:8000/api/notes?page=2&limit=10
+```
+
+**Verwendung:**
+```bash
+# Server starten
+uv run server.py
+
+# Server läuft dann unter:
+# http://localhost:8000
+```
+
+**Abhängigkeiten für Server:**
+```
+fastapi      # Web Framework
+uvicorn      # ASGI Server
+jinja2       # Template Engine
+```
+
+Installation:
+```bash
+pip install fastapi uvicorn jinja2
+```
+
+**Beispiel Response von `/api/notes`:**
+```json
+[
+  {
+    "filename": "Meine-Notiz.md",
+    "title": "Meine Notiz",
+    "date": "2024-01-15T14:30:00",
+    "date_str": "2024-01-15 14:30",
+    "tags": ["Arbeit", "Wichtig"],
+    "preview": "Dies ist der Anfang meiner Notiz mit bis zu 250 Zeichen...",
+    "full_content": "... kompletter Inhalt ..."
+  }
+]
+```
+
+---
+
 ## 🔄 Workflow Beispiel
 
-Kompletter Prozess zum Migrieren von Google Keep zu HedgeDoc:
+Kompletter Prozess zum Migrieren von Google Keep zu HedgeDoc mit Web-Interface:
 
 ```bash
 # 1. Google Takeout Export von Keep runterladen
@@ -140,12 +227,28 @@ Kompletter Prozess zum Migrieren von Google Keep zu HedgeDoc:
 # 3. In Markdown konvertieren
 uv run convert_keep_hedgedoc.py
 
-# 4. Dateien in HedgeDoc hochladen
+# 4. Optional: Web-Server starten zum Durchsuchen der Notizen
+uv run server.py
+# Öffne dann: http://localhost:8000
+
+# 5. Dateien in HedgeDoc hochladen
 uv run upload_to_hedgedoc.py
 
-# 5. Überprüfen der hochgeladenen Notizen auf HedgeDoc Server
+# 6. Überprüfen der hochgeladenen Notizen auf HedgeDoc Server
 # http://gmk.lan:3000
 ```
+
+---
+
+## 🎯 Welches Script für welchen Use-Case?
+
+| Use-Case | Script(s) |
+|----------|-----------|
+| Nur lokale Markdown-Dateien aus Keep | `convert_keep.py` oder `convert_keep_hedgedoc.py` |
+| Google Keep → Lokale Archive | `convert_keep_hedgedoc.py` |
+| Notizen durchsuchen & anschauen | `server.py` (nach convert) |
+| Google Keep → HedgeDoc Server | `convert_keep_hedgedoc.py` → `upload_to_hedgedoc.py` |
+| Komplette Migration mit Web-Interface | Alle 4 Scripts in Reihenfolge |
 
 ---
 
@@ -153,11 +256,14 @@ uv run upload_to_hedgedoc.py
 
 ```
 requests   # HTTP-Anfragen für HedgeDoc Upload
+fastapi    # Web Framework für Server
+uvicorn    # ASGI Server für FastAPI
+jinja2     # Template Engine für Server
 ```
 
 Installieren mit:
 ```bash
-pip install requests
+pip install requests fastapi uvicorn jinja2
 ```
 
 ---
