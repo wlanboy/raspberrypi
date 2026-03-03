@@ -141,7 +141,7 @@ Der Agent als Ganzes: seine Identität, Fähigkeiten und öffentliche Schnittste
 Agent Scope
 +-----------------------------------------------------------------------+
 | AgentCard                                                             |
-|   - Name, Description, Version                                       |
+|   - Name, Description, Version                                        |
 |   - URL (Erreichbarkeit)                                              |
 |   - Skills (Fähigkeiten)                                              |
 |   - Capabilities (Streaming, Push, History)                           |
@@ -160,9 +160,9 @@ Eine Sitzung gruppiert zusammengehörende Tasks zu einer Konversation.
 ```
 Session Scope (sessionId: "abc-123")
 +-----------------------------------------------------------------------+
-| Task 1: "Zeige Kategorien"          → completed                      |
-| Task 2: "Wähle Reisepass"           → completed                      |
-| Task 3: "Suche in Bürgeramt Mitte"  → completed                      |
+| Task 1: "Zeige Kategorien"          → completed                       |
+| Task 2: "Wähle Reisepass"           → completed                       |
+| Task 3: "Suche in Bürgeramt Mitte"  → completed                       |
 +-----------------------------------------------------------------------+
 | Conversation History (pro Session)                                    |
 |   [UserMessage, AssistantMessage, UserMessage, AssistantMessage, ...] |
@@ -199,7 +199,7 @@ Eine einzelne Nachricht innerhalb eines Tasks.
 Message Scope
 +-----------------------------------------------------------------------+
 | role: "user" | "agent"                                                |
-| parts: [TextPart, DataPart, FilePart, ...]                           |
+| parts: [TextPart, DataPart, FilePart, ...]                            |
 | metadata: { ... }                                                     |
 +-----------------------------------------------------------------------+
 ```
@@ -356,7 +356,7 @@ Die Antwort wird in ein A2A-konformes Response-Objekt verpackt:
        +------+--+ +---+---+ ++------++ +------+--------+
        | input-  | |comple-| |failed  | |   canceled    |
        | required| |ted    | |        | |               |
-       +---------+ +-------+ +-------+ +---------------+
+       +---------+ +-------+ +--------+ +---------------+
               |
               | (Client sendet
               |  weitere Daten)
@@ -530,7 +530,7 @@ FilePart
 DataPart
 +-----------------------------------------------------------------------+
 | type : "application/json"                                             |
-| data : object | array            # Strukturierte JSON-Daten          |
+| data : object | array            # Strukturierte JSON-Daten           |
 +-----------------------------------------------------------------------+
 ```
 
