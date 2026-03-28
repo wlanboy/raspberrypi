@@ -5,6 +5,7 @@ Dieses Projekt bietet Tools zum Exportieren und Konvertieren von Google Keep Not
 ## 📋 Scripts Übersicht
 
 ### 1. `convert_keep.py`
+
 **Funktion:** Konvertiert Google Keep JSON-Export zu lokalen Markdown-Dateien
 
 **Was es tut:**
@@ -38,6 +39,7 @@ Eigentlicher Notizinhalt hier...
 ```
 
 **Verwendung:**
+
 ```bash
 uv run convert_keep.py
 ```
@@ -45,23 +47,28 @@ uv run convert_keep.py
 ---
 
 ### 2. `convert_keep_hedgedoc.py`
+
 **Funktion:** Konvertiert Google Keep JSON zu HedgeDoc-optimiertem Markdown
 
 **Was es anders macht (vs. convert_keep.py):**
+
 - Nutzt HedgeDoc-spezifische Tag-Syntax (`###### tags:`)
 - Bessere Formatierung für HedgeDoc-Server
 - Robusteres Dateinamen-Cleaning
 - Aussagekräftigere Fehlerbehandlung mit Emoji-Icons
 
 **Input:**
+
 - Dateityp: JSON-Dateien aus Google Takeout
 - Quellpfad: `~/Downloads/Takeout/GoogleNotizen`
 
 **Output:**
+
 - Dateityp: Markdown-Dateien (`.md`)
 - Zielordner: `~/Dokumente/markdown_notes`
 
 **Beispiel Struktur einer HedgeDoc-konvertierten Notiz:**
+
 ```markdown
 ###### tags: `Arbeit` `Wichtig`
 
@@ -78,6 +85,7 @@ Eigentlicher Notizinhalt hier...
 ```
 
 **Verwendung:**
+
 ```bash
 uv run convert_keep_hedgedoc.py
 ```
@@ -85,9 +93,11 @@ uv run convert_keep_hedgedoc.py
 ---
 
 ### 3. `upload_to_hedgedoc.py`
+
 **Funktion:** Lädt Markdown-Dateien in einen HedgeDoc-Server hoch und erstellt schöne Aliases
 
 **Was es tut:**
+
 - Liest alle `.md` Dateien aus einem lokalen Ordner
 - Konvertiert Dateinamen in schöne Aliases (`Meine Notiz 2024.md` → `meine-notiz-2024`)
 - Behandelt Umlaute intelligent (ä→ae, ö→oe, ü→ue, ß→ss)
@@ -96,6 +106,7 @@ uv run convert_keep_hedgedoc.py
 - Verwaltet Rate-Limiting (Delay zwischen Uploads)
 
 **Konfiguration:**
+
 ```python
 SOURCE_MD_FOLDER = '~/Dokumente/markdown_notes'  # Quellordner mit .md Dateien
 HEDGEDOC_URL = 'http://gmk.lan:3000'            # HedgeDoc-Server URL
@@ -103,22 +114,26 @@ DELAY_BETWEEN_UPLOADS = 1.5                      # Sekunden Pause zwischen Uploa
 ```
 
 **Upload-Tracking:**
+
 - Erstellt `.upload_history.txt` im Quellordner
 - Verhindert Duplikat-Uploads bereits hochgeladener Dateien
 - Manuelle Anpassung möglich durch Ändern der History-Datei
 
 **Fehlerverwaltung:**
+
 - Status Code 200/302: ✅ Erfolgreich hochgeladen
 - Status Code 403: ❌ Aliases deaktiviert (Gastmodus)
 - Status Code 429: ⏳ Rate Limit → 15s Pause, dann Retry
 - Andere Fehler: Ignoriert, geht zum nächsten Script
 
 **Verwendung:**
+
 ```bash
 uv run upload_to_hedgedoc.py
 ```
 
 **Beispiel Output:**
+
 ```
 🚀 Starte Alias-Import für 43 Dateien...
 ⏩ Überspringe: Alte_Notiz.md
@@ -130,9 +145,11 @@ uv run upload_to_hedgedoc.py
 ---
 
 ### 4. `server.py`
+
 **Funktion:** FastAPI Web-Server zum Anzeigen und Durchsuchen von Markdown-Notizen
 
 **Was es tut:**
+
 - Startet einen lokalen Web-Server (FastAPI + Uvicorn)
 - Zeigt alle Markdown-Dateien in einer Web-Oberfläche an
 - Bietet Such- und Filterfunktion nach Titel und Inhalt
@@ -140,6 +157,7 @@ uv run upload_to_hedgedoc.py
 - Paginierung der Notizenliste (20 pro Seite)
 
 **Features:**
+
 - 📝 **Notizenliste:** Alle konvertierten Notizen werden mit Vorschau angezeigt
 - 🔍 **Suchfunktion:** Live-Suche in Titel und Inhalt
 - 🏷️ **Tags:** Zeigt alle Tags/Labels einer Notiz
@@ -147,6 +165,7 @@ uv run upload_to_hedgedoc.py
 - 📄 **Preview:** 250 Zeichen Vorschau des Notizinhalts
 
 **Konfiguration:**
+
 ```python
 NOTES_DIR = os.path.expanduser('~/Dokumente/markdown_notes')  # Quellordner
 # Server läuft auf Port 8000
@@ -162,11 +181,13 @@ NOTES_DIR = os.path.expanduser('~/Dokumente/markdown_notes')  # Quellordner
 | `/static/*` | GET | Statische Dateien (CSS, JS) |
 
 **Query Parameter für `/api/notes`:**
+
 - `q` (optional): Suchstring (durchsucht Titel und Inhalt)
 - `page` (optional): Seitennummer, default: 1
 - `limit` (optional): Notizen pro Seite, default: 20
 
 **Beispiel API Calls:**
+
 ```bash
 # Alle Notizen (Seite 1)
 curl http://localhost:8000/api/notes
@@ -179,6 +200,7 @@ curl http://localhost:8000/api/notes?page=2&limit=10
 ```
 
 **Verwendung:**
+
 ```bash
 # Server starten
 uv run server.py
@@ -188,18 +210,21 @@ uv run server.py
 ```
 
 **Abhängigkeiten für Server:**
-```
+
+```txt
 fastapi      # Web Framework
 uvicorn      # ASGI Server
 jinja2       # Template Engine
 ```
 
 Installation:
+
 ```bash
 pip install fastapi uvicorn jinja2
 ```
 
 **Beispiel Response von `/api/notes`:**
+
 ```json
 [
   {
@@ -254,7 +279,7 @@ uv run upload_to_hedgedoc.py
 
 ## 📦 Abhängigkeiten
 
-```
+```txt
 requests   # HTTP-Anfragen für HedgeDoc Upload
 fastapi    # Web Framework für Server
 uvicorn    # ASGI Server für FastAPI
@@ -262,6 +287,7 @@ jinja2     # Template Engine für Server
 ```
 
 Installieren mit:
+
 ```bash
 pip install requests fastapi uvicorn jinja2
 ```
@@ -273,18 +299,21 @@ pip install requests fastapi uvicorn jinja2
 Alle Pfade können in den Scripten angepasst werden:
 
 **convert_keep.py:**
+
 ```python
 SOURCE_FOLDER = os.path.expanduser('~/Custom/Path/ToKeep')
 OUTPUT_FOLDER = os.path.expanduser('~/Custom/Output/Path')
 ```
 
 **convert_keep_hedgedoc.py:**
+
 ```python
 SOURCE_FOLDER = os.path.expanduser('~/Custom/Path/ToKeep')
 OUTPUT_FOLDER = os.path.expanduser('~/Custom/Output/Path')
 ```
 
 **upload_to_hedgedoc.py:**
+
 ```python
 SOURCE_MD_FOLDER = os.path.expanduser('~/Custom/Markdown/Path')
 HEDGEDOC_URL = 'http://your-hedgedoc-server:port'
