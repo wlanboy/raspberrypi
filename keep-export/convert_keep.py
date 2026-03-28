@@ -35,7 +35,7 @@ def json_to_markdown(data, hedgedoc=False):
     title = data.get('title', '')
     created = convert_time(data.get('createdTimestampUsec', 0))
     edited_usec = data.get('userEditedTimestampUsec', 0)
-    labels = [l['name'] for l in data.get('labels', [])]
+    labels = [label['name'] for label in data.get('labels', [])]
     color = data.get('color', '')
     is_archived = data.get('isArchived', False)
 
@@ -51,7 +51,7 @@ def json_to_markdown(data, hedgedoc=False):
     md_content = []
 
     if hedgedoc and labels:
-        tag_line = " ".join([f"`{l}`" for l in labels])
+        tag_line = " ".join([f"`{label}`" for label in labels])
         md_content.append(f"###### tags: {tag_line}\n")
 
     md_content.append(f"# {title}\n")
