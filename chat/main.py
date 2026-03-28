@@ -1,5 +1,5 @@
 from flask import Flask, render_template, redirect, url_for, request, session
-from flask_socketio import SocketIO, emit, send
+from flask_socketio import SocketIO, emit
 from collections import deque
 
 app = Flask(__name__)
@@ -55,7 +55,7 @@ def handle_message(msg):
     if username:
         message_data = {'username': username, 'message': msg}
         chat_history.append(message_data)
-        send(message_data, broadcast=True)
+        emit('message', message_data, broadcast=True)
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
