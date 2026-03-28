@@ -1,30 +1,38 @@
-# use cert-manager with istio ingress gateway
-Kubectl commands to install Istio, IngressGateway and a simple nginx based test service with certmanager issued certificate. 
+# cert-manager with Istio Ingress Gateway
 
-# istio basic install
-```
+Step-by-step guide to install Istio, the Ingress Gateway, and a test service
+with TLS termination via a cert-manager issued certificate. Assumes a running
+Kubernetes cluster with Helm, cert-manager, and a configured `ClusterIssuer`.
+
+## Istio base install
+
+```bash
 kubectl get ns istio-system &>/dev/null || kubectl create namespace istio-system
 helm install istio-base istio/base -n istio-system --wait
 helm install istiod istio/istiod -n istio-system --wait
 ```
 
-# istio gateway install
-```
+## Istio gateway install
+
+```bash
 kubectl get ns istio-ingress &>/dev/null || kubectl create namespace istio-ingress
 helm install istio-ingressgateway istio/gateway -n istio-ingress --wait
 ```
 
-# basic service
-```
+## Basic test service
+
+```bash
 kubectl create namespace tester
 kubectl label namespace tester istio-injection=enabled
 kubectl create deployment tester --image=wlanboy/http-tester:latest -n tester
 kubectl expose deployment tester --type=ClusterIP --port=5000 -n tester
 ```
 
-# istio virtual service for service
-Define Host and gateway in namespace istio-ingress. Export to tester and istio-ingress namespace
-```
+## Istio VirtualService for the test service
+
+Define host and gateway in namespace `istio-ingress`, exported to `tester` and `istio-ingress`.
+
+```bash
 kubectl apply -f - <<EOF
 apiVersion: networking.istio.io/v1
 kind: VirtualService
@@ -52,9 +60,11 @@ spec:
 EOF
 ```
 
-# istio ingress gateway with tls
-Create secret and define gateway in namespace istio-ingress for hostnames.
-```
+## Istio Ingress Gateway with TLS
+
+Create the cert-manager certificate and define the gateway with TLS termination.
+
+```bash
 kubectl apply -f - <<EOF
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -100,14 +110,28 @@ spec:
 EOF
 ```
 
-## have local /etc/host or pihole dns point to the public ip of the istio ingress gateway
+## DNS / hosts configuration
+
+Point the hostnames to the external IP of the Istio Ingress Gateway service.
+
+```bash
+kubectl get service -n istio-ingress
 ```
-kubectl get service -n istio-ingress 
+
+Example output:
+
+```text
 NAME                   TYPE           CLUSTER-IP      EXTERNAL-IP       PORT(S)                                      AGE
 istio-ingressgateway   LoadBalancer   10.43.233.201   192.168.100.100   15021:31200/TCP,80:31039/TCP,443:31032/TCP   48m
+```
 
+Add entries to `/etc/hosts` or configure a local DNS server (e.g. Pi-hole):
+
+```bash
 echo "192.168.100.100 tester.nuc.lan" | sudo tee -a /etc/hosts > /dev/null
 echo "192.168.100.100 tester2.nuc.lan" | sudo tee -a /etc/hosts > /dev/null
 ```
 
-## open browser with https://tester.nuc.lan
+## Test
+
+Open <https://tester.nuc.lan> in a browser and verify the TLS certificate.
