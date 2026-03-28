@@ -22,7 +22,8 @@ def get_note_metadata(filename):
     with open(path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    tags = re.findall(r'`([^`]+)`', re.search(r'###### tags: (.*)', content).group(1)) if re.search(r'###### tags: (.*)', content) else []
+    tags_match = re.search(r'###### tags: (.*)', content)
+    tags = re.findall(r'`([^`]+)`', tags_match.group(1)) if tags_match else []
     date_match = re.search(r'\*\*Erstellt am:\*\* (.*)', content)
     date_str = date_match.group(1).strip() if date_match else "1970-01-01 00:00"
 
@@ -34,7 +35,8 @@ def get_note_metadata(filename):
         except ValueError:
             pass
 
-    title = re.search(r'^# (.*)', content, re.MULTILINE).group(1) if re.search(r'^# (.*)', content, re.MULTILINE) else filename
+    title_match = re.search(r'^# (.*)', content, re.MULTILINE)
+    title = title_match.group(1) if title_match else filename
     clean_text = re.sub(r'###### tags:.*|\*\*Erstellt am:\*\*.*|\*\*Bearbeitet am:\*\*.*|^# .*|^---$', '', content, flags=re.MULTILINE).strip()
 
     return {
@@ -61,7 +63,7 @@ def get_all_notes():
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
 @app.get("/api/notes")
