@@ -1,49 +1,52 @@
-# Install cert-manager in k3s with local ca
-All kubectl commands to install and configure a cert manager with your own ca on any kubernetes cluster.
+# Install cert-manager in k3s with local CA
 
+Installs and configures [cert-manager](https://cert-manager.io/) on a Kubernetes cluster using a self-hosted CA.
+cert-manager automates the issuance and renewal of TLS certificates via a `ClusterIssuer` backed by your own CA key and certificate.
 
-## cert-manager key and cert
-```
+## Create namespace
+
+```sh
 kubectl create namespace cert-manager
 ```
 
-## helm repro
-```
+## Add Helm repository
+
+```sh
 helm repo add jetstack https://charts.jetstack.io
 helm repo update
 ```
 
-## helm install
-```
-kubectl create namespace cert-manager
+## Install cert-manager
 
+```sh
 helm install \
-cert-manager jetstack/cert-manager \
---namespace cert-manager \
---set crds.enabled=true
+  cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --set crds.enabled=true
 ```
 
-## Set secret
-```
+## Create CA secret and ClusterIssuer
+
+```sh
 kubectl create secret tls my-local-ca-secret \
---namespace cert-manager \
---cert=/local-ca/ca.pem \
---key=/local-ca/ca.key
+  --namespace cert-manager \
+  --cert=/local-ca/ca.pem \
+  --key=/local-ca/ca.key
 
 cat <<EOF | kubectl apply -f -
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
   name: local-ca-issuer
-  namespace: cert-manager
 spec:
   ca:
     secretName: my-local-ca-secret
 EOF
 ```
 
-## test
-```
+## Test: issue a certificate
+
+```sh
 cat <<EOF | kubectl apply -f -
 apiVersion: cert-manager.io/v1
 kind: Certificate
