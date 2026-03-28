@@ -1,19 +1,20 @@
-# TP Link TL-WN823N
-Information collection on hardware module.
+# TP-Link TL-WN823N USB WLAN Stick
+
+How to identify and set up the TP-Link TL-WN823N (RTL8192CU) USB WLAN adapter on Raspberry Pi.
 
 ```bash
 uname -a
 Linux raspberrypione 5.10.17+ #1421 Thu May 27 13:58:02 BST 2021 armv6l GNU/Linux
 ```
 
-# usb info
+## usb info
 
 ```bash
 sudo lsusb
 Bus 001 Device 004: ID xxxx:yyyy Realtek Semiconductor Corp. RTL8192CU 802.11n WLAN Adapter
 ```
 
-# network device info
+## network device info
 
 ```bash
 sudo lshw -C network
@@ -27,7 +28,7 @@ sudo lshw -C network
        configuration: broadcast=yes driver=rtl8192cu driverversion=5.10.17+ firmware=N/A link=no multicast=yes wireless=IEEE 802.11
 ```
 
-# module information
+## module information
 
 ```bash
 sudo modinfo rtl8192cu
