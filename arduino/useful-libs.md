@@ -1,6 +1,6 @@
-## Useful available Arduino libraries
+# Useful Arduino libraries
 
-A list of useful and working Arduino libraries.
+A curated list of tested and working Arduino libraries for displays, GPS, sensors, and UI components.
 
 ```
 Adafruit_BusIO
