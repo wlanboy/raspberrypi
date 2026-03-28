@@ -8,6 +8,7 @@ declare -A ALIASES=(
     ["gs"]="python3 ~/git/raspberrypi/tools/git_status_all.py ~/git"
     ["gl"]="python3 ~/git/raspberrypi/tools/scan_git_repos.py ~/git"
     ["gnm"]="python3 ~/git/raspberrypi/tools/gh-no-mirror.py"
+    ["up"]="python3 ~/git/raspberrypi/tools/update-pom.py"
 )
 
 FORCE=0
