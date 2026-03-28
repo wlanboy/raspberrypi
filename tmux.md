@@ -1,5 +1,7 @@
 # tmux cheatsheet
 
+Quick reference for the most common tmux commands to manage sessions, windows, and panes.
+
 start new:
 
     tmux
