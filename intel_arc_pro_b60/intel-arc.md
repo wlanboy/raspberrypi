@@ -14,6 +14,7 @@ GPU-Monitoring und Steam-Gaming-Setup.
 4. [GPU-Monitoring mit nvtop](#4-gpu-monitoring-mit-nvtop)
 5. [Steam via Flatpak einrichten](#5-steam-via-flatpak-einrichten)
 6. [Verifikation & Fehlerbehebung](#6-verifikation--fehlerbehebung)
+7. [LLM Scaler – LLM-Inferenz auf der iGPU](#7-llm-scaler--llm-inferenz-auf-der-igpu)
 
 ---
 
@@ -24,7 +25,7 @@ GPU-Monitoring und Steam-Gaming-Setup.
 - Internetverbindung
 - Benutzer mit `sudo`-Rechten
 
-Kernel-Version prüfen (empfohlen: 6.8 oder neuer für vollständige Xe2-Unterstützung):
+Kernel-Version prüfen (Minimum: 6.8, empfohlen: 6.11+ für vollständige Xe2/Battlemage-Unterstützung):
 
 ```bash
 uname -r
@@ -34,6 +35,13 @@ Aktuelle Kernel-Version anzeigen und ggf. aktualisieren:
 
 ```bash
 sudo apt update && sudo apt upgrade -y
+```
+
+Für bessere B60-Unterstützung den HWE-Kernel installieren (Ubuntu 24.04):
+
+```bash
+sudo apt install linux-generic-hwe-24.04
+sudo reboot
 ```
 
 ---
@@ -73,7 +81,12 @@ echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] \
   sudo tee /etc/apt/sources.list.d/intel-gpu-noble.list
 ```
 
-#### 2.4 OneAPI-Repository hinzufügen
+#### 2.4 OneAPI-Repository hinzufügen (optional)
+
+> **Wann nötig?** Das OneAPI-Repository wird nur benötigt, wenn du SYCL/DPC++-Entwicklung betreiben
+> oder Intel-optimierte Bibliotheken (MKL, oneDNN) nutzen möchtest – z.B. für KI/ML-Workloads,
+> OpenVINO oder das LLM Scaler Framework (siehe [Abschnitt 7](#7-llm-scaler--llm-inferenz-auf-der-igpu)).
+> Für reines Gaming oder OpenCL-Nutzung ist dieses Repository nicht erforderlich.
 
 ```bash
 wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | \
@@ -341,6 +354,25 @@ Platform #0: Intel(R) OpenCL Graphics
 ### Level Zero prüfen
 
 ```bash
+sycl-ls
+```
+
+Erwartete Ausgabe (erfordert installiertes OneAPI):
+
+```text
+[opencl:gpu:0] Intel(R) OpenCL Graphics, Intel(R) Arc(TM) Pro B60 Graphics ...
+[level_zero:gpu:0] Intel(R) Level-Zero, Intel(R) Arc(TM) Pro B60 Graphics ...
+```
+
+Ohne OneAPI alternativ via `clinfo`:
+
+```bash
+clinfo -l
+```
+
+DRI-Devices prüfen:
+
+```bash
 ls /dev/dri/
 ```
 
@@ -382,3 +414,47 @@ lspci -k | grep -A 3 "Intel.*Graphics"
 ```
 
 Das Modul `xe` (für Xe2/Battlemage) oder `i915` sollte als Kernel-Treiber angezeigt werden.
+
+---
+
+## 7. LLM Scaler – LLM-Inferenz auf der iGPU
+
+**[intel/llm-scaler](https://github.com/intel/llm-scaler)** ist ein von Intel entwickeltes Framework,
+das Large Language Models effizient auf Intel Arc GPUs ausführt – optimiert für die Xe2-Architektur
+(Battlemage) der B60.
+
+### Was es bietet
+
+- Inferenz von LLMs (z.B. LLaMA, Mistral, Qwen) direkt auf der Intel GPU via Level Zero / SYCL
+- Nutzung der B60-Speicherbandbreite (48 GB GDDR6) für große Modelle ohne CPU-Flaschenhals
+- Integration mit HuggingFace-Modellen und GGUF-Format
+- Optimierte Kernel für Intel Xe-Matrix Extensions (XMX / Tensor-Einheiten der B60)
+
+### Voraussetzungen
+
+- OneAPI-Stack installiert (siehe [Abschnitt 2.4](#24-oneapi-repository-hinzufügen-optional))
+- Level Zero Laufzeit aktiv (`sycl-ls` zeigt die GPU)
+
+### Installation
+
+```bash
+git clone https://github.com/intel/llm-scaler.git
+cd llm-scaler
+pip install -e .
+```
+
+Umgebungsvariablen für OneAPI laden:
+
+```bash
+source /opt/intel/oneapi/setvars.sh
+```
+
+### Nutzung (Beispiel)
+
+```bash
+python run.py --model <modellpfad> --device gpu
+```
+
+> Aktuelle Installations- und Nutzungshinweise direkt im
+> [GitHub-Repository](https://github.com/intel/llm-scaler) prüfen, da sich das Projekt aktiv
+> weiterentwickelt.
