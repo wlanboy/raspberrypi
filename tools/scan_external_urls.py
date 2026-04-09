@@ -1,0 +1,415 @@
+#!/usr/bin/env python3
+"""
+scan_external_urls.py - Scans a git repository for external URLs, emails,
+hostnames, and IP addresses that could leak data or cause unintended outbound
+connections in tests or code.
+
+Exit codes:
+  0 - No findings (or --no-fail set)
+  1 - Findings detected
+  2 - Script error (invalid arguments, not a git repo, etc.)
+"""
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+
+
+# ---------------------------------------------------------------------------
+# Regex patterns
+# ---------------------------------------------------------------------------
+
+URL_PATTERN = re.compile(
+    r'https?://[^\s\'"<>()\[\]{}\\,;]+'
+    r'(?:[^\s\'"<>()\[\]{}\\,;.!?])',
+    re.IGNORECASE,
+)
+
+EMAIL_PATTERN = re.compile(
+    r'\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b'
+)
+
+# Matches hostnames like "api.example.com", "mail.internal.corp"
+# Requires at least one dot and a known-ish TLD length (2-6 chars).
+# Excludes version strings like "1.2.3" by requiring at least one alpha segment.
+HOSTNAME_PATTERN = re.compile(
+    r'\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)'
+    r'+[a-zA-Z]{2,6}\b'
+)
+
+IP_PATTERN = re.compile(
+    r'\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}'
+    r'(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b'
+)
+
+# Binary file detection: read first 8 KB and look for null bytes
+BINARY_CHECK_BYTES = 8192
+
+# Extensions that are always skipped (images, compiled artifacts, …)
+ALWAYS_SKIP_EXTENSIONS = {
+    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".svg",
+    ".webp", ".tiff", ".pdf", ".zip", ".tar", ".gz", ".bz2",
+    ".xz", ".7z", ".rar", ".jar", ".war", ".ear", ".class",
+    ".pyc", ".pyo", ".so", ".o", ".a", ".dll", ".exe", ".bin",
+    ".woff", ".woff2", ".ttf", ".eot", ".otf",
+    ".mp3", ".mp4", ".avi", ".mov", ".mkv",
+    ".lock",  # package-lock.json, yarn.lock etc. are noisy
+}
+
+
+# ---------------------------------------------------------------------------
+# Data structures
+# ---------------------------------------------------------------------------
+
+@dataclass
+class Finding:
+    category: str   # "url" | "email" | "hostname" | "ip"
+    value: str
+    file: str
+    line: int
+    context: str
+
+
+@dataclass
+class ScanConfig:
+    repo_path: str
+    allowlist: list[str] = field(default_factory=list)
+    skip_patterns: list[str] = field(default_factory=list)
+    categories: set[str] = field(default_factory=lambda: {"url", "email", "hostname", "ip"})
+    skip_tests: bool = False
+    output_format: str = "text"   # "text" | "json"
+    no_fail: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def get_tracked_files(repo_path: str) -> list[str]:
+    """Return all files tracked by git (respects .gitignore automatically)."""
+    result = subprocess.run(
+        ["git", "-C", repo_path, "ls-files", "--cached", "--others",
+         "--exclude-standard"],
+        capture_output=True, text=True, check=True,
+    )
+    return [
+        os.path.join(repo_path, f)
+        for f in result.stdout.splitlines()
+        if f.strip()
+    ]
+
+
+def is_binary(path: str) -> bool:
+    try:
+        with open(path, "rb") as fh:
+            return b"\x00" in fh.read(BINARY_CHECK_BYTES)
+    except OSError:
+        return True
+
+
+def is_test_file(path: str) -> bool:
+    lower = path.lower()
+    return (
+        "/test/" in lower
+        or "/tests/" in lower
+        or "\\test\\" in lower
+        or "\\tests\\" in lower
+        or os.path.basename(lower).startswith("test_")
+        or os.path.basename(lower).endswith("_test.py")
+        or os.path.basename(lower).endswith(".test.ts")
+        or os.path.basename(lower).endswith(".spec.ts")
+        or os.path.basename(lower).endswith("Test.java")
+    )
+
+
+def matches_any(value: str, patterns: list[str]) -> bool:
+    value_lower = value.lower()
+    for pattern in patterns:
+        try:
+            if re.search(pattern, value_lower, re.IGNORECASE):
+                return True
+        except re.error:
+            if pattern.lower() in value_lower:
+                return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Per-line scanning
+# ---------------------------------------------------------------------------
+
+def scan_line(line_text: str, config: ScanConfig) -> list[tuple[str, str]]:
+    """Return list of (category, value) matches in a single line."""
+    hits: list[tuple[str, str]] = []
+
+    if "url" in config.categories:
+        for m in URL_PATTERN.finditer(line_text):
+            hits.append(("url", m.group(0)))
+
+    if "email" in config.categories:
+        for m in EMAIL_PATTERN.finditer(line_text):
+            # Avoid reporting the same value already caught as a URL
+            already = any(m.group(0) in v for c, v in hits if c == "url")
+            if not already:
+                hits.append(("email", m.group(0)))
+
+    if "hostname" in config.categories:
+        # Only report hostnames that are NOT part of an already-found URL/email
+        already_values = {v for _, v in hits}
+        for m in HOSTNAME_PATTERN.finditer(line_text):
+            host = m.group(0)
+            if not any(host in v for v in already_values):
+                hits.append(("hostname", host))
+
+    if "ip" in config.categories:
+        for m in IP_PATTERN.finditer(line_text):
+            ip = m.group(0)
+            # Skip loopback / link-local / private ranges only if they look
+            # like real infra addresses (they can still be intentional leaks)
+            hits.append(("ip", ip))
+
+    return hits
+
+
+# ---------------------------------------------------------------------------
+# File scanning
+# ---------------------------------------------------------------------------
+
+def scan_file(path: str, config: ScanConfig) -> list[Finding]:
+    findings: list[Finding] = []
+
+    # Skip by extension
+    ext = Path(path).suffix.lower()
+    if ext in ALWAYS_SKIP_EXTENSIONS:
+        return findings
+
+    # Skip test files if requested
+    if config.skip_tests and is_test_file(path):
+        return findings
+
+    # Skip explicitly excluded path patterns
+    rel_path = os.path.relpath(path, config.repo_path)
+    if matches_any(rel_path, config.skip_patterns):
+        return findings
+
+    if is_binary(path):
+        return findings
+
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            lines = fh.readlines()
+    except OSError:
+        return findings
+
+    for line_no, raw_line in enumerate(lines, start=1):
+        line_text = raw_line.rstrip("\n\r")
+        for category, value in scan_line(line_text, config):
+            # Apply allowlist
+            if matches_any(value, config.allowlist):
+                continue
+            findings.append(Finding(
+                category=category,
+                value=value,
+                file=rel_path,
+                line=line_no,
+                context=line_text.strip()[:120],
+            ))
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# Output formatters
+# ---------------------------------------------------------------------------
+
+CATEGORY_LABELS = {
+    "url":      "URL",
+    "email":    "Email",
+    "hostname": "Hostname",
+    "ip":       "IP Address",
+}
+
+CATEGORY_ICONS = {
+    "url":      "[URL]     ",
+    "email":    "[EMAIL]   ",
+    "hostname": "[HOST]    ",
+    "ip":       "[IP]      ",
+}
+
+
+def print_text_report(findings: list[Finding]) -> None:
+    if not findings:
+        print("✓ No external references found.")
+        return
+
+    by_category: dict[str, list[Finding]] = {}
+    for f in findings:
+        by_category.setdefault(f.category, []).append(f)
+
+    print(f"\n{'='*70}")
+    print(f"  External reference scan — {len(findings)} finding(s)")
+    print(f"{'='*70}\n")
+
+    for cat in ("url", "email", "hostname", "ip"):
+        items = by_category.get(cat, [])
+        if not items:
+            continue
+        label = CATEGORY_LABELS[cat]
+        print(f"  {label}s ({len(items)})")
+        print(f"  {'-'*40}")
+        for f in items:
+            print(f"  {f.file}:{f.line}")
+            print(f"    Value  : {f.value}")
+            print(f"    Context: {f.context}")
+            print()
+
+    print(f"{'='*70}")
+    print(f"  Total: {len(findings)} finding(s) in {len({f.file for f in findings})} file(s)")
+    print(f"{'='*70}\n")
+
+
+def print_json_report(findings: list[Finding]) -> None:
+    data = [
+        {
+            "category": f.category,
+            "value": f.value,
+            "file": f.file,
+            "line": f.line,
+            "context": f.context,
+        }
+        for f in findings
+    ]
+    print(json.dumps(data, indent=2))
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Scan a git repository for external URLs, emails, hostnames, and IPs.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Scan current directory, fail on any finding
+  python scan_external_urls.py
+
+  # Scan specific repo, skip test files, allow internal domain
+  python scan_external_urls.py /path/to/repo --skip-tests --allow "mycompany\\.com"
+
+  # CI pipeline: JSON output, fail on URL or email only
+  python scan_external_urls.py --categories url email --format json
+
+  # Load allowlist from file (one regex per line)
+  python scan_external_urls.py --allow-file .scan-allowlist
+""",
+    )
+    parser.add_argument(
+        "repo", nargs="?", default=".",
+        help="Path to the git repository root (default: current directory)",
+    )
+    parser.add_argument(
+        "--categories", nargs="+",
+        choices=["url", "email", "hostname", "ip"],
+        default=["url", "email", "hostname", "ip"],
+        metavar="CATEGORY",
+        help="Categories to scan for: url email hostname ip (default: all)",
+    )
+    parser.add_argument(
+        "--allow", nargs="*", default=[],
+        metavar="PATTERN",
+        help="Regex patterns to allow (e.g. 'localhost' 'example\\.com')",
+    )
+    parser.add_argument(
+        "--allow-file", metavar="FILE",
+        help="File with one allow-pattern per line (comments with # supported)",
+    )
+    parser.add_argument(
+        "--skip", nargs="*", default=[],
+        metavar="PATTERN",
+        help="Regex path patterns to skip (e.g. 'docs/' 'fixtures/')",
+    )
+    parser.add_argument(
+        "--skip-tests", action="store_true",
+        help="Skip common test file/directory patterns",
+    )
+    parser.add_argument(
+        "--format", choices=["text", "json"], default="text",
+        dest="output_format",
+        help="Output format: text (default) or json",
+    )
+    parser.add_argument(
+        "--no-fail", action="store_true",
+        help="Always exit 0, even when findings are present",
+    )
+    return parser
+
+
+def load_allowlist_file(path: str) -> list[str]:
+    patterns: list[str] = []
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                patterns.append(line)
+    return patterns
+
+
+def main() -> int:
+    parser = build_parser()
+    args = parser.parse_args()
+
+    repo_path = os.path.abspath(args.repo)
+    if not os.path.isdir(os.path.join(repo_path, ".git")):
+        print(f"ERROR: '{repo_path}' is not a git repository root.", file=sys.stderr)
+        return 2
+
+    allowlist = list(args.allow)
+    if args.allow_file:
+        try:
+            allowlist.extend(load_allowlist_file(args.allow_file))
+        except OSError as exc:
+            print(f"ERROR: Cannot read allow-file: {exc}", file=sys.stderr)
+            return 2
+
+    config = ScanConfig(
+        repo_path=repo_path,
+        allowlist=allowlist,
+        skip_patterns=args.skip or [],
+        categories=set(args.categories),
+        skip_tests=args.skip_tests,
+        output_format=args.output_format,
+        no_fail=args.no_fail,
+    )
+
+    try:
+        files = get_tracked_files(repo_path)
+    except subprocess.CalledProcessError as exc:
+        print(f"ERROR: git ls-files failed: {exc}", file=sys.stderr)
+        return 2
+
+    if config.output_format == "text":
+        print(f"Scanning {len(files)} tracked file(s) in '{repo_path}' …")
+
+    all_findings: list[Finding] = []
+    for path in files:
+        all_findings.extend(scan_file(path, config))
+
+    if config.output_format == "json":
+        print_json_report(all_findings)
+    else:
+        print_text_report(all_findings)
+
+    if all_findings and not config.no_fail:
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
