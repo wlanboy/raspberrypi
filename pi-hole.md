@@ -1,11 +1,15 @@
 # Pi-hole Installation via Script
+
 This document describes how to create a flexible shell script that sets up a Pi-hole Docker container. You only need to pass the IP address of your server as an argument.
 
 ## 1\. Prerequisites
+
 Before you begin, make sure **Docker** is installed on your system. If it's not, follow the instructions at this link:
+
   - **[Docker Installation on Raspberry Pi](https://github.com/wlanboy/raspberrypi/blob/main/docker.md)**
 
 # 2\. Create the Script
+
 Create a new file named `install_pihole.sh` and add the following code. This script will create the necessary directories and set up the Docker container.
 
 ```bash
@@ -49,6 +53,7 @@ echo "The default web password is 'pihole'. Please change it after your first lo
 ```
 
 ## 3\. Make the Script Executable and Run It
+
 Save the file and make it executable so you can run it:
 
 ```bash
@@ -56,6 +61,7 @@ chmod +x install_pihole.sh
 ```
 
 Now, you can run the script and pass your server's IP address as an argument. In this example, we'll use the IP `192.168.1.100`:
+
 ```bash
 ./install_pihole.sh 192.168.1.100
 ```
@@ -63,6 +69,7 @@ Now, you can run the script and pass your server's IP address as an argument. In
 The script will create the necessary directories and start the Pi-hole container with the IP address you provided.
 
 ## 4\. Using Pi-hole
+
 Once the container is running, you can access the web interface to configure Pi-hole and manage your blocklists. You'll find the web interface at:
 **http://YOUR\_SERVER\_IP:8080**
 
