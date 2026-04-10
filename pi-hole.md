@@ -8,7 +8,7 @@ Before you begin, make sure **Docker** is installed on your system. If it's not,
 
   - **[Docker Installation on Raspberry Pi](https://github.com/wlanboy/raspberrypi/blob/main/docker.md)**
 
-# 2\. Create the Script
+## 2\. Create the Script
 
 Create a new file named `install_pihole.sh` and add the following code. This script will create the necessary directories and set up the Docker container.
 
