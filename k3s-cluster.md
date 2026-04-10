@@ -1,17 +1,18 @@
 # Create arm64 based k3s cluster on ubuntu
-Commands to create an arm64 based k3s cluster on Ubuntu
 
-
-## install docker 
-- See: https://github.com/wlanboy/raspberrypi/blob/main/docker.md
+Commands to create an arm64 based k3s cluster on Ubuntu using Raspberry Pi or similar single-board computers.
+The setup includes a k3s server node and one or more agent nodes, with MetalLB as load balancer and kubectl for cluster management.
+Traefik and ServiceLB are disabled in favour of a custom MetalLB configuration.
 
 ## change boot cmd line
+
 ```bash
 sudo nano /boot/firmware/cmdline.txt
-#add cgroup_memory=1 cgroup_enable=memory
+add cgroup_memory=1 cgroup_enable=memory at the end
 ```
 
 ## swap files and ip tables
+
 ```bash
 sudo apt install -y iptables
 sudo dphys-swapfile swapoff
@@ -19,7 +20,8 @@ sudo dphys-swapfile uninstall
 sudo systemctl disable dphys-swapfile
 ```
 
-## install k3s without traefik and servicelb and define the exteral ip
+## install k3s without traefik and servicelb and define the external ip
+
 ```bash
 PUBLIC_IP="192.168.178.22"
 
@@ -28,17 +30,18 @@ sudo cp /var/lib/rancher/k3s/server/node-token ~/token
 sudo chown $USER:$USER ~/token
 ```
 
-## add agend to cluster
+## add agent to cluster
+
 ```bash
 TOKEN_FILE=~/token
 scp gmk:~/token $TOKEN_FILE
 K3S_TOKEN=$(cat "$TOKEN_FILE")
 
 curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" INSTALL_K3S_CHANNEL=stable INSTALL_K3S_EXEC="--node-external-ip=192.168.178.37" K3S_URL=https://gmk:6443 K3S_TOKEN=$K3S_TOKEN sh -
-
 ```
 
 ## copy kube config
+
 ```bash
 mkdir ~/.kube
 sudo cp -i /etc/rancher/k3s/k3s.yaml ~/.kube/config
@@ -46,6 +49,7 @@ sudo chown $USER:$USER ~/.kube/config
 ```
 
 ## install kubectl
+
 ```bash
 cd ~
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl"
@@ -53,7 +57,7 @@ chmod +x ./kubectl
 sudo cp ./kubectl /usr/bin
 ```
 
-## install metallb 
+## install metallb
 
 ```bash
 cd ~
@@ -87,12 +91,14 @@ kubectl apply -f metallb-adv.yaml
 ```
 
 ## check cluster
-```
+
+```bash
 kubectl get all -A
 ```
 
 ## uninstall k3s
-```
+
+```bash
 sudo /usr/local/bin/k3s-uninstall.sh
 ```
 
