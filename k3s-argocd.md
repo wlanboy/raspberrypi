@@ -22,7 +22,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/cont
 
 ## howto install cert-manager
 
-see: https://github.com/wlanboy/raspberrypi/tree/main/ca/cert-manager
+<https://github.com/wlanboy/raspberrypi/tree/main/ca/cert-manager>
 
 ## Create the TLS Certificate with cert-manager
 
@@ -48,7 +48,7 @@ EOF
 
 ## create ingress with ssl cert
 
-```bash 
+```bash
 kubectl apply -f - <<EOF
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -88,7 +88,7 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.pas
 
 Open the web UI:
 
-- Browse to: https://192.168.170.100/ (replace with your ARGOCD_IP)
+- Browse to: <https://192.168.170.100/> (replace with your ARGOCD_IP)
 - The server uses a self-signed certificate by default — browser will warn.
 
 Install the argocd CLI (arm64):
