@@ -69,9 +69,19 @@ def get_github_repos():
     return repos
 
 def get_gitea_repos():
-    url = f"{GITEA_URL}/api/v1/orgs/{GITEA_ORG}/repos"
-    text, status = http_request(url)
-    return json.loads(text) if status == 200 else []
+    repos = []
+    page = 1
+    while True:
+        url = f"{GITEA_URL}/api/v1/orgs/{GITEA_ORG}/repos?page={page}&limit=50"
+        text, status = http_request(url)
+        if status != 200:
+            break
+        data = json.loads(text)
+        if not data:
+            break
+        repos.extend(data)
+        page += 1
+    return repos
 
 def delete_gitea_repo(repo_name):
     url = f"{GITEA_URL}/api/v1/repos/{GITEA_ORG}/{repo_name}"
