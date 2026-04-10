@@ -9,6 +9,7 @@ declare -A ALIASES=(
     ["gl"]="python3 ~/git/raspberrypi/tools/scan_git_repos.py ~/git"
     ["gnm"]="python3 ~/git/raspberrypi/tools/gh-no-mirror.py"
     ["up"]="python3 ~/git/raspberrypi/tools/update-pom.py"
+    ["lp"]="python3 ~/git/raspberrypi/tools/local_push.py"
 )
 
 FORCE=0
