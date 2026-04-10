@@ -9,7 +9,7 @@ import sys
 # Umgebungsvariablen laden
 # -----------------------------
 GITHUB_USER = os.getenv("GITHUB_USERNAME")
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_TOKEN = os.getenv("GITHUB_GITEA_TOKEN")
 GITEA_TOKEN = os.getenv("GITEA_TOKEN")
 
 if not GITHUB_USER or not GITHUB_TOKEN or not GITEA_TOKEN:
