@@ -1,0 +1,16 @@
+[project]
+name = "kubecontext"
+version = "0.1.0"
+description = "kubectl context management"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "textual>=0.80.0",
+    "pyyaml>=6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.408",
+    "ruff>=0.15.10",
+]
