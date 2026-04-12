@@ -1,0 +1,9 @@
+[project]
+name = "k3s-tools"
+version = "0.1.0"
+description = "k3s tools"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyyaml>=6.0.3",
+]
