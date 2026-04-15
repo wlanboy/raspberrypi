@@ -5,12 +5,15 @@ Findet Metriken, Labels und Label-Wert-Kombinationen mit dem höchsten
 Speicherverbrauch (Cardinality = Anzahl unique Time Series).
 """
 
+import base64
 import json
 import urllib.request
 import urllib.parse
 import ssl
 
-PROMETHEUS_URL = "https://prometheus.gmk.lan:9090"
+PROMETHEUS_URL = "https://localhost:9090"
+BASIC_AUTH_USER = "admin"
+BASIC_AUTH_PASS = "secret"
 TOP_N = 50  # Wie viele Top-Einträge anzeigen
 
 # SSL-Verifikation deaktivieren (self-signed certs im LAN)
@@ -18,12 +21,16 @@ ssl_ctx = ssl.create_default_context()
 ssl_ctx.check_hostname = False
 ssl_ctx.verify_mode = ssl.CERT_NONE
 
+_AUTH_HEADER = "Basic " + base64.b64encode(
+    f"{BASIC_AUTH_USER}:{BASIC_AUTH_PASS}".encode()
+).decode()
+
 
 def query(path: str, params: dict | None = None) -> dict:
     url = f"{PROMETHEUS_URL}{path}"
     if params:
         url += "?" + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url)
+    req = urllib.request.Request(url, headers={"Authorization": _AUTH_HEADER})
     with urllib.request.urlopen(req, context=ssl_ctx, timeout=60) as resp:
         return json.loads(resp.read())
 
@@ -299,7 +306,7 @@ def main():
     # --- /healthz endpoint ---
     try:
         url = f"{PROMETHEUS_URL}/-/healthy"
-        req = urllib.request.Request(url)
+        req = urllib.request.Request(url, headers={"Authorization": _AUTH_HEADER})
         with urllib.request.urlopen(req, context=ssl_ctx, timeout=5) as resp:
             healthy = resp.status == 200
     except Exception:
@@ -309,7 +316,7 @@ def main():
     # --- /ready endpoint ---
     try:
         url = f"{PROMETHEUS_URL}/-/ready"
-        req = urllib.request.Request(url)
+        req = urllib.request.Request(url, headers={"Authorization": _AUTH_HEADER})
         with urllib.request.urlopen(req, context=ssl_ctx, timeout=5) as resp:
             ready = resp.status == 200
     except Exception:
