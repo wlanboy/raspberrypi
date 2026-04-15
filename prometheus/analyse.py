@@ -21,11 +21,8 @@ BASIC_AUTH_USER = "admin"
 BASIC_AUTH_PASS = "secret"
 TOP_N = 50  # Wie viele Top-Eintraege anzeigen
 
-_AUTH_HEADER = "Basic {0}".format(
-    base64.b64encode(
-        "{0}:{1}".format(BASIC_AUTH_USER.strip(), BASIC_AUTH_PASS.strip()).encode("utf-8")
-    ).decode("ascii")
-)
+_Credentials = f"{BASIC_AUTH_USER}:{BASIC_AUTH_PASS}".encode("utf-8")
+_AUTH_HEADER = "Basic " + base64.b64encode(_Credentials).decode("ascii")
 
 
 # SSL-Verifikation deaktivieren (self-signed certs im LAN)
@@ -110,6 +107,8 @@ def print_table(rows, headers):
 def main():
     print("Prometheus Cardinality & Memory Analyzer")
     print("Target: {0}".format(PROMETHEUS_URL))
+    print("Auth:   {0} / {1}".format(BASIC_AUTH_USER, '*' * len(BASIC_AUTH_PASS)))
+    print("Header: {0}".format(repr(_AUTH_HEADER)))
 
     # --- 1. Runtime Info ---
     separator("Runtime Info")
