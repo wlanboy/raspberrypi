@@ -22,7 +22,9 @@ BASIC_AUTH_PASS = "secret"
 TOP_N = 50  # Wie viele Top-Eintraege anzeigen
 
 _AUTH_HEADER = "Basic {0}".format(
-    base64.b64encode("{0}:{1}".format(BASIC_AUTH_USER, BASIC_AUTH_PASS))
+    base64.b64encode(
+        "{0}:{1}".format(BASIC_AUTH_USER.strip(), BASIC_AUTH_PASS.strip()).encode("utf-8")
+    ).decode("ascii")
 )
 
 
