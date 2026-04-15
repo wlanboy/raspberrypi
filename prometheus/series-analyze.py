@@ -22,8 +22,8 @@ ssl_ctx.check_hostname = False
 ssl_ctx.verify_mode = ssl.CERT_NONE
 
 _AUTH_HEADER = "Basic " + base64.b64encode(
-    f"{BASIC_AUTH_USER}:{BASIC_AUTH_PASS}".encode()
-).decode()
+    f"{BASIC_AUTH_USER.strip()}:{BASIC_AUTH_PASS.strip()}".encode("utf-8")
+).decode("ascii")
 
 
 def query(path: str, params: dict | None = None) -> dict:
@@ -84,6 +84,8 @@ def print_table(rows: list[tuple], headers: tuple):
 def main():
     print("Prometheus Cardinality & Memory Analyzer")
     print(f"Target: {PROMETHEUS_URL}")
+    print(f"Auth:   {BASIC_AUTH_USER} / {'*' * len(BASIC_AUTH_PASS)}")
+    print(f"Header: {_AUTH_HEADER}")
 
     # --- 1. Runtime Info ---
     separator("Runtime Info")
