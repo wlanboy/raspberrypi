@@ -8,6 +8,7 @@ Speicherverbrauch (Cardinality = Anzahl unique Time Series).
 
 from __future__ import print_function
 
+import base64
 import json
 import ssl
 import socket
@@ -15,8 +16,14 @@ import urllib
 import urllib2
 import httplib
 
-PROMETHEUS_URL = "https://prometheus.gmk.lan:9090"
+PROMETHEUS_URL = "https://localhost:9090"
+BASIC_AUTH_USER = "admin"
+BASIC_AUTH_PASS = "secret"
 TOP_N = 50  # Wie viele Top-Eintraege anzeigen
+
+_AUTH_HEADER = "Basic {0}".format(
+    base64.b64encode("{0}:{1}".format(BASIC_AUTH_USER, BASIC_AUTH_PASS))
+)
 
 
 # SSL-Verifikation deaktivieren (self-signed certs im LAN)
@@ -48,6 +55,7 @@ def query(path, params=None):
     if params:
         url += "?" + urllib.urlencode(params)
     req = urllib2.Request(url)
+    req.add_header("Authorization", _AUTH_HEADER)
     resp = _opener.open(req, timeout=60)
     return json.loads(resp.read())
 
@@ -325,6 +333,7 @@ def main():
     try:
         url = "{0}/-/healthy".format(PROMETHEUS_URL)
         req = urllib2.Request(url)
+        req.add_header("Authorization", _AUTH_HEADER)
         resp = _opener.open(req, timeout=5)
         healthy = resp.getcode() == 200
     except Exception:
@@ -336,6 +345,7 @@ def main():
     try:
         url = "{0}/-/ready".format(PROMETHEUS_URL)
         req = urllib2.Request(url)
+        req.add_header("Authorization", _AUTH_HEADER)
         resp = _opener.open(req, timeout=5)
         ready = resp.getcode() == 200
     except Exception:
