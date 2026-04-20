@@ -10,6 +10,7 @@ declare -A ALIASES=(
     ["gnm"]="python3 ~/git/raspberrypi/tools/gh-no-mirror.py"
     ["up"]="python3 ~/git/raspberrypi/tools/update-pom.py"
     ["lp"]="python3 ~/git/raspberrypi/tools/local_push.py"
+    ["hh"]="python3 -m http.server"
 )
 
 FORCE=0
