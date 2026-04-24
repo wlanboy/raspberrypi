@@ -58,7 +58,7 @@ def get_github_repos():
         "Authorization": f"Bearer {GITHUB_TOKEN}",
     }
     while True:
-        url = f"https://api.github.com/user/repos?page={page}&per_page=100&type=owner"
+        url = f"https://api.github.com/user/repos?page={page}&per_page=150&type=owner"
         text, status = http_request(url, headers=headers)
         if status != 200:
             raise Exception(f"GitHub Fehler: {status} {text}")
