@@ -13,7 +13,7 @@ GITHUB_TOKEN = os.getenv("GITHUB_GITEA_TOKEN")
 GITEA_TOKEN = os.getenv("GITEA_TOKEN")
 
 if not GITHUB_USER or not GITHUB_TOKEN or not GITEA_TOKEN:
-    print("❌ Fehler: Umgebungsvariablen GITHUB_USERNAME, GITHUB_TOKEN und GITEA_TOKEN prüfen!")
+    print("❌ Fehler: Umgebungsvariablen GITHUB_USERNAME, GITHUB_GITEA_TOKEN und GITEA_TOKEN prüfen!")
     sys.exit(1)
 
 # -----------------------------
@@ -58,7 +58,7 @@ def get_github_repos():
         "Authorization": f"Bearer {GITHUB_TOKEN}",
     }
     while True:
-        url = f"https://api.github.com/user/repos?page={page}&per_page=150&type=owner"
+        url = f"https://api.github.com/user/repos?page={page}&per_page=100&type=owner"
         text, status = http_request(url, headers=headers)
         if status != 200:
             raise Exception(f"GitHub Fehler: {status} {text}")
