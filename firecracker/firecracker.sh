@@ -199,11 +199,13 @@ sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
 sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 systemctl enable ssh
 
-# systemd-networkd als Netzwerkdienst registrieren.
-# Die eigentliche Konfiguration (IP, Gateway) schreibt addserver.sh vor
-# dem ersten Start in das kopierte Image.
+# systemd-networkd konfiguriert eth0; systemd-resolved wird maskiert.
+# In der microVM kann resolved keinen echten DNS-Server erreichen und blockiert
+# dadurch nss-lookup.target – und damit sshd – für bis zu 90 Sekunden.
+# Stattdessen: statisches resolv.conf.
 systemctl enable systemd-networkd
-systemctl enable systemd-resolved
+systemctl mask systemd-resolved
+echo -e "nameserver 8.8.8.8\nnameserver 1.1.1.1" > /etc/resolv.conf
 
 # Seriellen Konsolen-Login ohne Passwort-Prompt.
 # Firecracker leitet stdout/stderr auf ttyS0 um – ohne diesen Override
