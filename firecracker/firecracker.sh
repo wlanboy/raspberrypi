@@ -166,12 +166,15 @@ else
     [ -f "$BASE_ROOTFS" ] && log "Basis-Rootfs unvollständig – wird neu erstellt..."
     log "Erstelle Basis-Rootfs (debootstrap, dauert einige Minuten)..."
 
-    # Sparse-Datei anlegen; belegt anfangs keinen physischen Speicher
+    # Hängende Loop-Devices vom vorherigen Fehlversuch bereinigen
+    sudo losetup -j "$BASE_ROOTFS" 2>/dev/null | cut -d: -f1 | xargs -r sudo losetup -d
+
+    # Sparse-Datei anlegen; -F überspringt den interaktiven Überschreib-Dialog
     truncate -s "$BASE_DISK_SIZE" "$BASE_ROOTFS"
-    mkfs.ext4 -q "$BASE_ROOTFS"
+    mkfs.ext4 -q -F "$BASE_ROOTFS"
 
     MOUNT_DIR=$(mktemp -d)
-    sudo mount "$BASE_ROOTFS" "$MOUNT_DIR"
+    sudo mount -t ext4 -o loop "$BASE_ROOTFS" "$MOUNT_DIR"
 
     log "Führe debootstrap aus (${UBUNTU_RELEASE})..."
     sudo debootstrap "$UBUNTU_RELEASE" "$MOUNT_DIR" "$UBUNTU_MIRROR"
@@ -179,6 +182,14 @@ else
     log "Konfiguriere Basis-Image (chroot)..."
     sudo chroot "$MOUNT_DIR" /bin/bash <<'CHROOT'
 set -e
+
+# Vollständige sources.list mit updates und security setzen;
+# debootstrap erzeugt nur "noble main" – damit fehlen viele Pakete.
+cat > /etc/apt/sources.list <<'SOURCES'
+deb http://archive.ubuntu.com/ubuntu noble main restricted universe
+deb http://archive.ubuntu.com/ubuntu noble-updates main restricted universe
+deb http://archive.ubuntu.com/ubuntu noble-security main restricted universe
+SOURCES
 
 # Paketliste aktualisieren und essentielle Pakete installieren.
 # --no-install-recommends hält das Image klein.
