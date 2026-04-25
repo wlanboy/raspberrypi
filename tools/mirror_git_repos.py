@@ -72,7 +72,7 @@ def get_gitea_repos():
     repos = []
     page = 1
     while True:
-        url = f"{GITEA_URL}/api/v1/orgs/{GITEA_ORG}/repos?page={page}&limit=50"
+        url = f"{GITEA_URL}/api/v1/orgs/{GITEA_ORG}/repos?page={page}&limit=150"
         text, status = http_request(url)
         if status != 200:
             break
