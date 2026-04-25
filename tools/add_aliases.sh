@@ -15,6 +15,7 @@ declare -A ALIASES=(
     ["du"]="python3 ~/git/raspberrypi/tools/docker-image-update.py"
     ["su"]="python3 ~/git/raspberrypi/tools/update-stack.py"
     ["aa"]="alias"
+    ["gt"]="python3 ~/git/raspberrypi/tools/gitea-update-github-token.py"
 )
 
 FORCE=0
