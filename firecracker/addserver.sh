@@ -262,7 +262,7 @@ EOF
 {
   "boot-source": {
     "kernel_image_path": "${VMLINUX}",
-    "boot_args": "console=ttyS0 reboot=k panic=1 pci=off nomodule ipv6.disable=1 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory"
+    "boot_args": "console=ttyS0 reboot=k panic=1 pci=off ipv6.disable=1 net.ifnames=0 biosdevname=0 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory"
   },
   "drives": [
     {
