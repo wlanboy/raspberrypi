@@ -11,6 +11,8 @@ declare -A ALIASES=(
     ["up"]="python3 ~/git/raspberrypi/tools/update-pom.py"
     ["lp"]="python3 ~/git/raspberrypi/tools/local_push.py"
     ["hh"]="python3 -m http.server"
+    ["ds"]="python3 ~/git/raspberrypi/tools/docker-image-status.py"
+    ["du"]="python3 ~/git/raspberrypi/tools/docker-image-update.py"
 )
 
 FORCE=0
