@@ -207,6 +207,7 @@ Address=${GUEST_IP}/24
 Gateway=${HOST_IP}
 DNS=8.8.8.8
 DNS=1.1.1.1
+MTUBytes=1450
 EOF
 
     sudo umount "$MOUNT_DIR"
