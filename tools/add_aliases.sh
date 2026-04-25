@@ -13,6 +13,7 @@ declare -A ALIASES=(
     ["hh"]="python3 -m http.server"
     ["ds"]="python3 ~/git/raspberrypi/tools/docker-image-status.py"
     ["du"]="python3 ~/git/raspberrypi/tools/docker-image-update.py"
+    ["su"]="python3 ~/git/raspberrypi/tools/update-stack.py"
 )
 
 FORCE=0
