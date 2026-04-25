@@ -194,9 +194,13 @@ set -e
 # Root-Passwort (nur für Entwicklung; in Produktion SSH-Key verwenden)
 echo "root:root" | chpasswd
 
-# SSH-Root-Login aktivieren
-sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
-sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+# SSH-Root-Login und Passwort-Auth aktivieren.
+# Drop-in überschreibt ggf. abweichende Defaults in sshd_config.d/.
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/99-firecracker.conf <<'SSHCFG'
+PermitRootLogin yes
+PasswordAuthentication yes
+SSHCFG
 systemctl enable ssh
 
 # systemd-networkd konfiguriert eth0; systemd-resolved wird maskiert.
