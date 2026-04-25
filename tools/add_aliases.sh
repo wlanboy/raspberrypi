@@ -14,6 +14,7 @@ declare -A ALIASES=(
     ["ds"]="python3 ~/git/raspberrypi/tools/docker-image-status.py"
     ["du"]="python3 ~/git/raspberrypi/tools/docker-image-update.py"
     ["su"]="python3 ~/git/raspberrypi/tools/update-stack.py"
+    ["aa"]="alias"
 )
 
 FORCE=0
@@ -43,5 +44,8 @@ done
 
 if [ "$added" -gt 0 ]; then
     echo ""
-    echo "$added alias(es) added. Run 'source ~/.bashrc' to apply."
+    echo "$added alias(es) added."
 fi
+
+source "$BASHRC"
+echo "sourced $BASHRC"
