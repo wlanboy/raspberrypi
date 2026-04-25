@@ -149,9 +149,21 @@ fi
 
 BASE_ROOTFS="$FC_DIR/base.ext4"
 
+_base_ok=0
 if [ -f "$BASE_ROOTFS" ]; then
+    # Prüfen ob das Image tatsächlich ein befülltes Rootfs enthält (nicht nur mkfs).
+    _tmp_check=$(mktemp -d)
+    if sudo mount -t ext4 -o loop,ro "$BASE_ROOTFS" "$_tmp_check" 2>/dev/null; then
+        [ -d "$_tmp_check/etc" ] && _base_ok=1
+        sudo umount "$_tmp_check"
+    fi
+    rmdir "$_tmp_check"
+fi
+
+if [ "$_base_ok" = "1" ]; then
     skip "Basis-Rootfs bereits vorhanden: $BASE_ROOTFS"
 else
+    [ -f "$BASE_ROOTFS" ] && log "Basis-Rootfs unvollständig – wird neu erstellt..."
     log "Erstelle Basis-Rootfs (debootstrap, dauert einige Minuten)..."
 
     # Sparse-Datei anlegen; belegt anfangs keinen physischen Speicher
