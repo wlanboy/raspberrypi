@@ -138,19 +138,33 @@ def main():
 
     # 2. GitHub Repos abrufen
     gh_repos = get_github_repos()
-    
+
+    total = len(gh_repos)
+    filtered = 0
+    skipped = 0
+    created = 0
+
     for repo in gh_repos:
         name = repo["name"]
         if TOPIC_FILTER not in repo.get("topics", []):
+            filtered += 1
             continue
 
         if gitea_repo_exists(name):
             print(f"⏭ Überspringe {name} (existiert bereits)")
+            skipped += 1
             continue
 
         print(f"➕ Erstelle Mirror für {name} (Private: {repo['private']})...")
         print(repo["clone_url"])
         create_gitea_mirror(repo["clone_url"], name)
+        created += 1
+
+    print(f"\n📊 Zusammenfassung:")
+    print(f"   GitHub Repos gesamt:       {total}")
+    print(f"   Ohne '{TOPIC_FILTER}'-Topic: {filtered}")
+    print(f"   Bereits gespiegelt:        {skipped}")
+    print(f"   Neu erstellt:              {created}")
 
 if __name__ == "__main__":
     main()
