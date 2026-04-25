@@ -151,10 +151,14 @@ BASE_ROOTFS="$FC_DIR/base.ext4"
 
 _base_ok=0
 if [ -f "$BASE_ROOTFS" ]; then
-    # Prüfen ob das Image tatsächlich ein befülltes Rootfs enthält (nicht nur mkfs).
+    # Hängende Loop-Devices vom Image bereinigen, bevor wir read-only einbinden.
+    sudo losetup -j "$BASE_ROOTFS" 2>/dev/null | cut -d: -f1 | xargs -r sudo losetup -d
     _tmp_check=$(mktemp -d)
     if sudo mount -t ext4 -o loop,ro "$BASE_ROOTFS" "$_tmp_check" 2>/dev/null; then
-        [ -d "$_tmp_check/etc" ] && _base_ok=1
+        # Vollständig bootstrapped: os-release und ausführbare Shell müssen vorhanden sein.
+        if [ -f "$_tmp_check/etc/os-release" ] && [ -x "$_tmp_check/bin/bash" ]; then
+            _base_ok=1
+        fi
         sudo umount "$_tmp_check"
     fi
     rmdir "$_tmp_check"
@@ -177,31 +181,15 @@ else
     sudo mount -t ext4 -o loop "$BASE_ROOTFS" "$MOUNT_DIR"
 
     log "Führe debootstrap aus (${UBUNTU_RELEASE})..."
-    sudo debootstrap "$UBUNTU_RELEASE" "$MOUNT_DIR" "$UBUNTU_MIRROR"
+    # Pakete direkt beim Bootstrap einbinden – vermeidet einen separaten apt-get-Lauf
+    # und stellt sicher, dass debootstrap Abhängigkeiten aus dem richtigen Pool löst.
+    sudo debootstrap \
+        --include=iproute2,iputils-ping,curl,ca-certificates,openssh-server,systemd,systemd-resolved \
+        "$UBUNTU_RELEASE" "$MOUNT_DIR" "$UBUNTU_MIRROR"
 
     log "Konfiguriere Basis-Image (chroot)..."
     sudo chroot "$MOUNT_DIR" /bin/bash <<'CHROOT'
 set -e
-
-# Vollständige sources.list mit updates und security setzen;
-# debootstrap erzeugt nur "noble main" – damit fehlen viele Pakete.
-cat > /etc/apt/sources.list <<'SOURCES'
-deb http://archive.ubuntu.com/ubuntu noble main restricted universe
-deb http://archive.ubuntu.com/ubuntu noble-updates main restricted universe
-deb http://archive.ubuntu.com/ubuntu noble-security main restricted universe
-SOURCES
-
-# Paketliste aktualisieren und essentielle Pakete installieren.
-# --no-install-recommends hält das Image klein.
-apt-get update -q
-apt-get install -y -q --no-install-recommends \
-    iproute2 \
-    iputils-ping \
-    curl \
-    ca-certificates \
-    openssh-server \
-    systemd-networkd \
-    systemd-resolved
 
 # Root-Passwort (nur für Entwicklung; in Produktion SSH-Key verwenden)
 echo "root:root" | chpasswd
