@@ -447,6 +447,12 @@ e2fsck -f ~/firecracker/ubuntu-rootfs.ext4
 resize2fs ~/firecracker/ubuntu-rootfs.ext4
 ```
 
+### base fs kaputt
+```bash
+sudo losetup -j ~/firecracker/base.ext4 | cut -d: -f1 | xargs -r sudo losetup -d
+rm ~/firecracker/base.ext4
+```
+
 ---
 
 ## Übersicht der verwendeten Dateien
