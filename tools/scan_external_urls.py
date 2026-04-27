@@ -36,9 +36,9 @@ EMAIL_PATTERN = re.compile(
 
 # Matches hostnames like "api.example.com", "mail.internal.corp"
 # Requires at least one dot and a known-ish TLD length (2-6 chars).
-# Excludes version strings like "1.2.3" by requiring at least one alpha segment.
+# Each segment must be at least 2 chars to exclude single-letter variables (p.name, p.parent).
 HOSTNAME_PATTERN = re.compile(
-    r'\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)'
+    r'\b(?:[a-zA-Z0-9][a-zA-Z0-9\-]{0,60}[a-zA-Z0-9]\.)'
     r'+[a-zA-Z]{2,6}\b'
 )
 
@@ -47,17 +47,23 @@ IP_PATTERN = re.compile(
     r'(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b'
 )
 
-# Suffixes that look like TLDs but are actually file extensions, systemd unit
-# types, or other system identifiers — not real hostnames.
-NON_HOSTNAME_SUFFIXES = {
-    # Config / data formats
-    "conf", "cfg", "ini", "log", "txt", "md", "rst", "html", "htm",
-    "yml", "yaml", "json", "xml", "toml", "env", "properties",
-    # Systemd unit types
-    "target", "service", "timer", "socket", "mount", "path", "scope", "slice",
-    "device", "swap", "automount",
-    # Script / source extensions
-    "sh", "py", "rb", "js", "ts", "go", "rs", "c", "h", "cpp", "java",
+# Positive TLD allowlist: only matches whose last label is in this set are
+# reported as hostnames. Using a whitelist is far more stable than maintaining
+# a growing blacklist of code-like suffixes (error, name, parent, boot, …).
+KNOWN_TLDS = {
+    # Generic gTLDs
+    "com", "org", "net", "edu", "gov", "mil", "int", "info", "biz",
+    # Tech/cloud gTLDs
+    "io", "co", "ai", "app", "dev", "cloud", "tech", "online", "site",
+    # Common ccTLDs
+    "ac", "ae", "at", "au", "be", "br", "ca", "ch", "cn", "cz",
+    "de", "dk", "es", "eu", "fi", "fr", "gr", "hk", "hu",
+    "il", "in", "it", "jp", "kr", "mx", "nl", "no", "nz", "pl",
+    "pt", "ro", "ru", "se", "sg", "tr", "tw", "uk", "us", "za",
+    # Short ccTLDs used as domain hacks
+    "me", "ly", "to", "im", "gg", "gl", "fm", "tv", "cc",
+    # NOTE: "sh" omitted — conflicts with shell scripts (stats.sh, addserver.sh)
+    # NOTE: "id" omitted — conflicts with JS/Python attribute access (this.id, obj.id)
 }
 
 # Binary file detection: read first 8 KB and look for null bytes
@@ -184,9 +190,17 @@ def scan_line(line_text: str, config: ScanConfig) -> list[tuple[str, str]]:
             # Skip file path components: /etc/hostapd/hostapd.conf
             if m.start() > 0 and line_text[m.start() - 1] == "/":
                 continue
-            # Skip known non-TLD suffixes: hostapd.conf, graphical.target
+            # Only report if the TLD is a known real TLD
             suffix = host.rsplit(".", 1)[-1].lower()
-            if suffix in NON_HOSTNAME_SUFFIXES:
+            if suffix not in KNOWN_TLDS:
+                continue
+            # Skip all-uppercase non-TLD part: DOS filenames (MOUSE.COM) or constants
+            non_tld = host.rsplit(".", 1)[0]
+            if non_tld == non_tld.upper() and any(c.isalpha() for c in non_tld):
+                continue
+            # Skip Python/JS import statements: "from textual.app import", "import x.y"
+            before_stripped = line_text[:m.start()].rstrip()
+            if re.search(r'\b(?:from|import)$', before_stripped):
                 continue
             if not any(host in v for v in already_values):
                 hits.append(("hostname", host))
