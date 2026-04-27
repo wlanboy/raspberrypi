@@ -165,6 +165,9 @@ def scan_line(line_text: str, config: ScanConfig) -> list[tuple[str, str]]:
         already_values = {v for _, v in hits}
         for m in HOSTNAME_PATTERN.finditer(line_text):
             host = m.group(0)
+            # Skip if followed by '(' — it's a function/method call (e.g. subprocess.run, os.path.join)
+            if m.end() < len(line_text) and line_text[m.end()] == "(":
+                continue
             if not any(host in v for v in already_values):
                 hits.append(("hostname", host))
 
