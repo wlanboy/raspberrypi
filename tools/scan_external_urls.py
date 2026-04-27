@@ -84,6 +84,8 @@ class ScanConfig:
     skip_tests: bool = False
     output_format: str = "text"   # "text" | "json"
     no_fail: bool = False
+    ignore_ips: set[str] = field(default_factory=set)
+    ignore_all_ips: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -166,12 +168,11 @@ def scan_line(line_text: str, config: ScanConfig) -> list[tuple[str, str]]:
             if not any(host in v for v in already_values):
                 hits.append(("hostname", host))
 
-    if "ip" in config.categories:
+    if "ip" in config.categories and not config.ignore_all_ips:
         for m in IP_PATTERN.finditer(line_text):
             ip = m.group(0)
-            # Skip loopback / link-local / private ranges only if they look
-            # like real infra addresses (they can still be intentional leaks)
-            hits.append(("ip", ip))
+            if ip not in config.ignore_ips:
+                hits.append(("ip", ip))
 
     return hits
 
@@ -308,6 +309,15 @@ Examples:
 
   # Load allowlist from file (one regex per line)
   python scan_external_urls.py --allow-file .scan-allowlist
+
+  # Ignore all IP addresses (e.g. Ansible/infrastructure repos)
+  python scan_external_urls.py --ignore-all-ips
+
+  # Ignore specific IP addresses
+  python scan_external_urls.py --ignore-ips 192.168.1.1 10.0.0.1
+
+  # Load ignored IPs from file (one IP per line)
+  python scan_external_urls.py --ignore-ips-file .scan-ignore-ips
 """,
     )
     parser.add_argument(
@@ -348,6 +358,19 @@ Examples:
         "--no-fail", action="store_true",
         help="Always exit 0, even when findings are present",
     )
+    parser.add_argument(
+        "--ignore-all-ips", action="store_true",
+        help="Ignore all IP addresses (useful for Ansible or infrastructure repos)",
+    )
+    parser.add_argument(
+        "--ignore-ips", nargs="+", default=[],
+        metavar="IP",
+        help="IP addresses to ignore (e.g. '192.168.1.1' '10.0.0.1')",
+    )
+    parser.add_argument(
+        "--ignore-ips-file", metavar="FILE",
+        help="File with one IP address per line to ignore (comments with # supported)",
+    )
     return parser
 
 
@@ -378,6 +401,14 @@ def main() -> int:
             print(f"ERROR: Cannot read allow-file: {exc}", file=sys.stderr)
             return 2
 
+    ignore_ips = set(args.ignore_ips)
+    if args.ignore_ips_file:
+        try:
+            ignore_ips.update(load_allowlist_file(args.ignore_ips_file))
+        except OSError as exc:
+            print(f"ERROR: Cannot read ignore-ips-file: {exc}", file=sys.stderr)
+            return 2
+
     config = ScanConfig(
         repo_path=repo_path,
         allowlist=allowlist,
@@ -386,6 +417,8 @@ def main() -> int:
         skip_tests=args.skip_tests,
         output_format=args.output_format,
         no_fail=args.no_fail,
+        ignore_ips=ignore_ips,
+        ignore_all_ips=args.ignore_all_ips,
     )
 
     try:
