@@ -47,6 +47,19 @@ IP_PATTERN = re.compile(
     r'(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b'
 )
 
+# Suffixes that look like TLDs but are actually file extensions, systemd unit
+# types, or other system identifiers — not real hostnames.
+NON_HOSTNAME_SUFFIXES = {
+    # Config / data formats
+    "conf", "cfg", "ini", "log", "txt", "md", "rst", "html", "htm",
+    "yml", "yaml", "json", "xml", "toml", "env", "properties",
+    # Systemd unit types
+    "target", "service", "timer", "socket", "mount", "path", "scope", "slice",
+    "device", "swap", "automount",
+    # Script / source extensions
+    "sh", "py", "rb", "js", "ts", "go", "rs", "c", "h", "cpp", "java",
+}
+
 # Binary file detection: read first 8 KB and look for null bytes
 BINARY_CHECK_BYTES = 8192
 
@@ -165,8 +178,15 @@ def scan_line(line_text: str, config: ScanConfig) -> list[tuple[str, str]]:
         already_values = {v for _, v in hits}
         for m in HOSTNAME_PATTERN.finditer(line_text):
             host = m.group(0)
-            # Skip if followed by '(' — it's a function/method call (e.g. subprocess.run, os.path.join)
+            # Skip function/method calls: subprocess.run(, os.path.join(
             if m.end() < len(line_text) and line_text[m.end()] == "(":
+                continue
+            # Skip file path components: /etc/hostapd/hostapd.conf
+            if m.start() > 0 and line_text[m.start() - 1] == "/":
+                continue
+            # Skip known non-TLD suffixes: hostapd.conf, graphical.target
+            suffix = host.rsplit(".", 1)[-1].lower()
+            if suffix in NON_HOSTNAME_SUFFIXES:
                 continue
             if not any(host in v for v in already_values):
                 hits.append(("hostname", host))
