@@ -100,6 +100,7 @@ class Whitelist:
     ip_ranges: list[ipaddress.IPv4Network] = field(default_factory=list)
     hostnames: list[str] = field(default_factory=list)
     email_domains: list[str] = field(default_factory=list)
+    urls: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -458,6 +459,7 @@ def load_whitelist_file(path: str) -> Whitelist:
 
     wl.hostnames = [h.lower().lstrip("*.") for h in data.get("hostnames", [])]
     wl.email_domains = [d.lower() for d in data.get("email_domains", [])]
+    wl.urls = [u.lower() for u in data.get("urls", [])]
     return wl
 
 
@@ -478,7 +480,9 @@ def is_whitelisted(category: str, value: str, wl: Whitelist) -> bool:
         return domain in wl.email_domains
 
     if category == "url":
-        # Extract hostname from URL and check against whitelisted hostnames
+        value_lower = value.lower()
+        if any(value_lower.startswith(u) for u in wl.urls):
+            return True
         m = re.match(r'https?://([^/\s:?#]+)', value, re.IGNORECASE)
         if m:
             host = m.group(1).lower()
