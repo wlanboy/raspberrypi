@@ -11,6 +11,7 @@ Exit codes:
 """
 
 import argparse
+import ipaddress
 import json
 import os
 import re
@@ -95,6 +96,13 @@ class Finding:
 
 
 @dataclass
+class Whitelist:
+    ip_ranges: list[ipaddress.IPv4Network] = field(default_factory=list)
+    hostnames: list[str] = field(default_factory=list)
+    email_domains: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ScanConfig:
     repo_path: str
     allowlist: list[str] = field(default_factory=list)
@@ -105,6 +113,7 @@ class ScanConfig:
     no_fail: bool = False
     ignore_ips: set[str] = field(default_factory=set)
     ignore_all_ips: bool = False
+    whitelist: Whitelist = field(default_factory=Whitelist)
 
 
 # ---------------------------------------------------------------------------
@@ -202,6 +211,16 @@ def scan_line(line_text: str, config: ScanConfig) -> list[tuple[str, str]]:
             before_stripped = line_text[:m.start()].rstrip()
             if re.search(r'\b(?:from|import)$', before_stripped):
                 continue
+            # Skip Kubernetes API groups and annotation keys: networking.istio.io/v1
+            # or nginx.ingress.kubernetes.io/rewrite-target — hostname followed by /
+            if m.end() < len(line_text) and line_text[m.end()] == "/":
+                continue
+            # Skip bare Kubernetes apiGroup values: "apiGroup: rbac.authorization.k8s.io"
+            if re.search(r'\bapiGroups?\s*:\s+' + re.escape(host) + r'\s*$', line_text):
+                continue
+            # Skip bare YAML list items: "  - containerd.io" (package names, not URLs)
+            if re.match(r'^\s*-\s+' + re.escape(host) + r'\s*$', line_text):
+                continue
             if not any(host in v for v in already_values):
                 hits.append(("hostname", host))
 
@@ -247,8 +266,9 @@ def scan_file(path: str, config: ScanConfig) -> list[Finding]:
     for line_no, raw_line in enumerate(lines, start=1):
         line_text = raw_line.rstrip("\n\r")
         for category, value in scan_line(line_text, config):
-            # Apply allowlist
             if matches_any(value, config.allowlist):
+                continue
+            if is_whitelisted(category, value, config.whitelist):
                 continue
             findings.append(Finding(
                 category=category,
@@ -408,6 +428,10 @@ Examples:
         "--ignore-ips-file", metavar="FILE",
         help="File with one IP address per line to ignore (comments with # supported)",
     )
+    parser.add_argument(
+        "--whitelist", metavar="FILE",
+        help="JSON file with ip_ranges, hostnames, and email_domains to whitelist",
+    )
     return parser
 
 
@@ -419,6 +443,53 @@ def load_allowlist_file(path: str) -> list[str]:
             if line and not line.startswith("#"):
                 patterns.append(line)
     return patterns
+
+
+def load_whitelist_file(path: str) -> Whitelist:
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+
+    wl = Whitelist()
+    for entry in data.get("ip_ranges", []):
+        try:
+            wl.ip_ranges.append(ipaddress.ip_network(entry, strict=False))
+        except ValueError as exc:
+            print(f"WARNING: Invalid IP range '{entry}' in whitelist: {exc}", file=sys.stderr)
+
+    wl.hostnames = [h.lower().lstrip("*.") for h in data.get("hostnames", [])]
+    wl.email_domains = [d.lower() for d in data.get("email_domains", [])]
+    return wl
+
+
+def is_whitelisted(category: str, value: str, wl: Whitelist) -> bool:
+    if category == "ip":
+        try:
+            addr = ipaddress.ip_address(value)
+            return any(addr in net for net in wl.ip_ranges)
+        except ValueError:
+            return False
+
+    if category == "hostname":
+        host = value.lower()
+        return any(host == h or host.endswith("." + h) for h in wl.hostnames)
+
+    if category == "email":
+        domain = value.split("@", 1)[-1].lower()
+        return domain in wl.email_domains
+
+    if category == "url":
+        # Extract hostname from URL and check against whitelisted hostnames
+        m = re.match(r'https?://([^/\s:?#]+)', value, re.IGNORECASE)
+        if m:
+            host = m.group(1).lower()
+            return any(host == h or host.endswith("." + h) for h in wl.hostnames)
+
+    return False
+
+
+def _find_default_whitelist(repo_path: str) -> str | None:
+    candidate = os.path.join(repo_path, "whitelist.json")
+    return candidate if os.path.isfile(candidate) else None
 
 
 def main() -> int:
@@ -446,6 +517,15 @@ def main() -> int:
             print(f"ERROR: Cannot read ignore-ips-file: {exc}", file=sys.stderr)
             return 2
 
+    whitelist = Whitelist()
+    whitelist_path = args.whitelist or _find_default_whitelist(repo_path)
+    if whitelist_path:
+        try:
+            whitelist = load_whitelist_file(whitelist_path)
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"ERROR: Cannot read whitelist file: {exc}", file=sys.stderr)
+            return 2
+
     config = ScanConfig(
         repo_path=repo_path,
         allowlist=allowlist,
@@ -456,6 +536,7 @@ def main() -> int:
         no_fail=args.no_fail,
         ignore_ips=ignore_ips,
         ignore_all_ips=args.ignore_all_ips,
+        whitelist=whitelist,
     )
 
     try:
