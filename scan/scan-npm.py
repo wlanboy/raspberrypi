@@ -357,6 +357,11 @@ def _scan_js_split_var(lines: list[str], rel_path: str) -> list[Finding]:
 _PROC_ENV_LINE_PAT = re.compile(r'process\.env\b')
 _CHILD_PROC_LINE_PAT = re.compile(r'require\s*\(\s*["\']child_process["\']')
 
+_COMBINED_CHECKS = [
+    (_PROC_ENV_LINE_PAT,   "process.env kombiniert mit Netzwerkaufruf im Install-Skript — mögliche Exfiltration"),
+    (_CHILD_PROC_LINE_PAT, "child_process kombiniert mit Netzwerkaufruf im Install-Skript — mögliche Befehlsausführung"),
+]
+
 
 def _scan_js_cooccurrence(
     lines: list[str], rel_path: str, existing: list[Finding]
@@ -490,10 +495,6 @@ def _scan_package_json_lines(lines: list[str], rel_path: str) -> list[Finding]:
     # process.env / child_process combined with network in install scripts.
     # Alone they are normal (env checks, build helpers); dangerous only when
     # combined with an outbound network call in the same script string.
-    _COMBINED_CHECKS = [
-        (_PROC_ENV_LINE_PAT,   "process.env kombiniert mit Netzwerkaufruf im Install-Skript — mögliche Exfiltration"),
-        (_CHILD_PROC_LINE_PAT, "child_process kombiniert mit Netzwerkaufruf im Install-Skript — mögliche Befehlsausführung"),
-    ]
     for hook in LIFECYCLE_HOOKS:
         script_value = scripts.get(hook, "")
         if not script_value or not _SCRIPT_NET_PAT.search(script_value):
@@ -879,9 +880,7 @@ def _scan_tarball(tgz_path: str, label: str) -> list[Finding]:
                     elif is_yarnrc_yml:
                         findings.extend(_scan_yarnrc_yml_lines(lines, rel))
 
-    except (OSError, EOFError, tarfile.TarError):
-        pass
-    except Exception:  # gzip.BadGzipFile or zlib.error on corrupt blobs
+    except Exception:
         pass
     return findings
 
@@ -938,7 +937,7 @@ def print_text_report(findings: list[Finding]) -> None:
     print(f"  NPM/JS-Bedrohungsscan — {len(findings)} Befund(e)")
     print(f"{'='*72}\n")
 
-    category_order = ["MALICIOUS_PACKAGE", "INSTALL_SCRIPT", "EXFILTRATION",
+    category_order = ["INSTALL_SCRIPT", "EXFILTRATION",
                       "FILESYSTEM_ATTACK", "REMOTE_EXEC", "OBFUSCATION",
                       "CRYPTOMINING", "SUPPLY_CHAIN"]
     all_cats = category_order + [c for c in by_category if c not in category_order]
