@@ -996,6 +996,24 @@ SEVERITY_LABEL = {
     "INFO":   "[INFO]  ",
 }
 
+# ANSI color codes — only applied when writing to a real terminal.
+_RESET = "\033[0m"
+_ANSI = {
+    "HIGH":   "\033[91m",        # bright red
+    "MEDIUM": "\033[38;5;208m",  # 256-color orange
+    "LOW":    "",
+    "INFO":   "\033[2m",         # dim
+}
+_USE_COLOR = sys.stdout.isatty() and os.environ.get("NO_COLOR", "") == ""
+
+
+def _c(text: str, severity: str) -> str:
+    """Wrap *text* in the ANSI color for *severity* (no-op when color is disabled)."""
+    if not _USE_COLOR:
+        return text
+    code = _ANSI.get(severity, "")
+    return f"{code}{text}{_RESET}" if code else text
+
 
 def print_text_report(findings: list[Finding]) -> None:
     if not findings:
@@ -1025,7 +1043,7 @@ def print_text_report(findings: list[Finding]) -> None:
         print(f"  {'-'*44}")
         for f in items:
             loc = f"{f.file}:{f.line}" if f.line else f.file
-            print(f"  {SEVERITY_LABEL[f.severity]} {loc}")
+            print(f"  {_c(SEVERITY_LABEL[f.severity], f.severity)} {loc}")
             print(f"    Detail : {f.detail}")
             print(f"    Context: {f.context}")
             print()
@@ -1035,9 +1053,14 @@ def print_text_report(findings: list[Finding]) -> None:
     lows    = sum(1 for f in findings if f.severity == "LOW")
     infos   = sum(1 for f in findings if f.severity == "INFO")
 
+    summary = (
+        f"{_c(f'HIGH={highs}', 'HIGH')}  "
+        f"{_c(f'MEDIUM={mediums}', 'MEDIUM')}  "
+        f"LOW={lows}  INFO={infos}"
+    )
     print(f"{'='*72}")
     print(f"  Gesamt: {len(findings)} Befund(e) in {len({f.file for f in findings})} Datei(en)"
-          f"  [HIGH={highs}  MEDIUM={mediums}  LOW={lows}  INFO={infos}]")
+          f"  [{summary}]")
     print(f"{'='*72}\n")
 
 
