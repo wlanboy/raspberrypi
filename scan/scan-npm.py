@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
-# Suspicious patterns in package.json lifecycle scripts
+# Verdächtige Muster in package.json Lifecycle-Skripten
 # ---------------------------------------------------------------------------
 
 LIFECYCLE_HOOKS = frozenset({
@@ -60,9 +60,9 @@ INSTALL_SCRIPT_RULES: list[tuple[str, str]] = [
                                           "Krypto-Mining-Schlüsselwörter im Install-Skript"),
 ]
 
-# Network indicators used for context-aware checks.
-# _SCRIPT_NET_PAT  — matches inside a package.json lifecycle script string.
-# _FILE_NET_PAT    — matches anywhere inside a JS/TS source file.
+# Netzwerkindikatoren für kontextsensitive Prüfungen.
+# _SCRIPT_NET_PAT  — trifft innerhalb eines package.json Lifecycle-Skript-Strings zu.
+# _FILE_NET_PAT    — trifft an beliebiger Stelle in einer JS/TS-Quelldatei zu.
 _SCRIPT_NET_PAT = re.compile(
     r'\bcurl\b|\bwget\b'
     r'|fetch\s*\('
@@ -81,7 +81,7 @@ _FILE_NET_PAT = re.compile(
 )
 
 # ---------------------------------------------------------------------------
-# Code-level threat patterns for JS/TS/CJS files
+# Bedrohungsmuster auf Code-Ebene für JS/TS/CJS-Dateien
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -220,7 +220,7 @@ CODE_THREAT_RULES: list[ThreatRule] = [
 ]
 
 # ---------------------------------------------------------------------------
-# Data structures
+# Datenstrukturen
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -235,7 +235,7 @@ class Finding:
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Hilfsfunktionen
 # ---------------------------------------------------------------------------
 
 SKIP_EXTENSIONS = {
@@ -305,12 +305,12 @@ def _find_hook_line(lines: list[str], hook: str) -> int:
 # Core JS line scanner (shared by file and cache scanners)
 # ---------------------------------------------------------------------------
 
-# Matches: const/let/var X = "part1" + "part2"  (variable that stores a split string)
+# Erkennt: const/let/var X = "teil1" + "teil2"  (Variable speichert aufgeteilten String)
 _SPLIT_VAR_ASSIGN = re.compile(
     r'(?:var|let|const)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*'
     r'["\'][^"\']{1,30}["\']\s*\+\s*["\'][^"\']{1,30}["\']',
 )
-# Known dangerous module names whose parts are worth detecting when split
+# Bekannte gefährliche Modulnamen, deren Teile bei aufgeteilten Strings erkannt werden sollen
 _DANGEROUS_MODULE_PARTS = re.compile(
     r'child|process|exec|spawn|eval|Function|require|fs|net|http|crypto|os',
     re.IGNORECASE,
@@ -318,7 +318,7 @@ _DANGEROUS_MODULE_PARTS = re.compile(
 
 
 def _scan_js_split_var(lines: list[str], rel_path: str) -> list[Finding]:
-    """Detect the two-step pattern: var cp = 'child_'+'process'; require(cp)."""
+    """Erkennt das zweistufige Muster: var cp = 'child_'+'process'; require(cp)."""
     findings: list[Finding] = []
     assigned_vars: dict[str, int] = {}  # var name → line number of assignment
 
@@ -333,7 +333,7 @@ def _scan_js_split_var(lines: list[str], rel_path: str) -> list[Finding]:
     if not assigned_vars:
         return findings
 
-    # Second pass: look for require(var) or dynamic call using those variable names
+    # Zweiter Durchlauf: Suche nach require(var) oder dynamischem Aufruf mit diesen Variablen
     require_var = re.compile(
         r'require\s*\(\s*(' + '|'.join(re.escape(v) for v in assigned_vars) + r')\s*\)',
     )
@@ -367,11 +367,11 @@ _COMBINED_CHECKS = [
 def _scan_js_cooccurrence(
     lines: list[str], rel_path: str, existing: list[Finding]
 ) -> list[Finding]:
-    """Flag process.env / child_process at MEDIUM when the file also contains network code.
+    """Meldet process.env / child_process als MEDIUM, wenn die Datei auch Netzwerkcode enthält.
 
-    Reports only the first occurrence of each pattern to avoid flooding output
-    for React/Vite/Next.js files that use process.env on every other line.
-    Lines already covered by a HIGH rule are skipped.
+    Es wird nur das erste Vorkommen jedes Musters gemeldet, um React/Vite/Next.js-Dateien
+    nicht mit Treffern zu überfluten, die process.env in jeder zweiten Zeile nutzen.
+    Zeilen, die bereits von einer HIGH-Regel abgedeckt sind, werden übersprungen.
     """
     already_reported: set[int] = {f.line for f in existing}
     found_env = found_child = False
@@ -422,8 +422,8 @@ def _scan_js_lines(lines: list[str], rel_path: str, has_network: bool = False) -
         if not stripped or stripped.startswith("//") or stripped.startswith("*"):
             continue
 
-        # Report one finding per threat category per line to avoid noise while
-        # ensuring all distinct threat types on a line are captured.
+        # Pro Bedrohungskategorie pro Zeile nur einen Befund melden — vermeidet Rauschen,
+        # stellt aber sicher, dass alle unterschiedlichen Bedrohungstypen einer Zeile erfasst werden.
         seen_categories: set[str] = set()
         for rule in CODE_THREAT_RULES:
             if rule.pattern.search(line_text) and rule.category not in seen_categories:
@@ -447,7 +447,7 @@ def _scan_js_lines(lines: list[str], rel_path: str, has_network: bool = False) -
 
 
 # ---------------------------------------------------------------------------
-# Scanners
+# Scanner
 # ---------------------------------------------------------------------------
 
 def _scan_package_json_lines(lines: list[str], rel_path: str) -> list[Finding]:
@@ -653,7 +653,7 @@ def _scan_yarnrc_lines(lines: list[str], rel_path: str) -> list[Finding]:
 
 
 def scan_yarnrc(path: str, rel_path: str) -> list[Finding]:
-    """Scan Yarn v1 .yarnrc for suspicious registry and token config."""
+    """Prüft Yarn v1 .yarnrc auf verdächtige Registry- und Token-Konfiguration."""
     return _scan_yarnrc_lines(read_lines(path), rel_path)
 
 
@@ -706,7 +706,7 @@ def _scan_yarnrc_yml_lines(lines: list[str], rel_path: str) -> list[Finding]:
 
 
 def scan_yarnrc_yml(path: str, rel_path: str) -> list[Finding]:
-    """Scan Yarn v2/v3 .yarnrc.yml for suspicious registry, token and plugin config."""
+    """Prüft Yarn v2/v3 .yarnrc.yml auf verdächtige Registry-, Token- und Plugin-Konfiguration."""
     return _scan_yarnrc_yml_lines(read_lines(path), rel_path)
 
 
@@ -757,16 +757,16 @@ def _scan_package_lock_lines(lines: list[str], rel_path: str) -> list[Finding]:
 
 
 def scan_package_lock(path: str, rel_path: str) -> list[Finding]:
-    """Scan package-lock.json for resolved URLs pointing to non-standard registries."""
+    """Prüft package-lock.json auf aufgelöste URLs, die auf Nicht-Standard-Registries zeigen."""
     return _scan_package_lock_lines(read_lines(path), rel_path)
 
 
 def _check_minified_lines(lines: list[str], rel_path: str) -> list[Finding]:
-    """Flag JS files whose longest line exceeds MINIFIED_LINE_THRESHOLD.
+    """Markiert JS-Dateien, deren längste Zeile MINIFIED_LINE_THRESHOLD überschreitet.
 
-    Minified/bundled code compresses logic into single huge lines; attackers
-    append or embed payloads there knowing regex rules scan line-by-line and
-    may miss content past a certain offset.  One LOW finding per file.
+    Minimierter/gebündelter Code komprimiert Logik in einzelne riesige Zeilen. Angreifer
+    hängen Payloads dort an oder betten sie ein, weil Regex-Regeln zeilenweise prüfen
+    und Inhalt nach einem gewissen Offset übersehen können. Ein LOW-Befund pro Datei.
     """
     max_len = 0
     max_line_no = 0
@@ -801,7 +801,7 @@ def scan_js_file(path: str, rel_path: str) -> list[Finding]:
 
 
 def _scan_binding_gyp_lines(lines: list[str], rel_path: str) -> list[Finding]:
-    """Flag binding.gyp presence (implicit node-gyp install hook) and scan content for suspicious patterns."""
+    """Meldet das Vorhandensein von binding.gyp (impliziter node-gyp Install-Hook) und prüft Inhalt auf verdächtige Muster."""
     findings = [Finding(
         category="INSTALL_SCRIPT",
         severity="MEDIUM",
@@ -890,7 +890,7 @@ def scan_file(path: str, config: "ScanConfig") -> list[Finding]:
 
 
 # ---------------------------------------------------------------------------
-# npm cache scanning
+# npm-Cache-Scan
 # ---------------------------------------------------------------------------
 
 def get_npm_cache_dir() -> str:
@@ -906,7 +906,7 @@ def get_npm_cache_dir() -> str:
 
 
 def _scan_tarball(tgz_path: str, label: str) -> list[Finding]:
-    """Extract and scan JS/JSON/config files inside a gzipped tarball."""
+    """Entpackt und prüft JS/JSON/Konfig-Dateien innerhalb eines gzip-komprimierten Tarballs."""
     findings: list[Finding] = []
     try:
         with gzip.open(tgz_path, "rb") as gz_fh:
@@ -961,8 +961,8 @@ def _scan_tarball(tgz_path: str, label: str) -> list[Finding]:
 
 def scan_npm_cache(cache_dir: str, verbose: bool = False) -> list[Finding]:
     """
-    Scan npm's content-addressed cache (_cacache/content-v2/) for malicious packages.
-    Each blob in that directory is a gzipped tarball of a published package.
+    Durchsucht npms inhaltsadressierten Cache (_cacache/content-v2/) nach schädlichen Paketen.
+    Jeder Blob in diesem Verzeichnis ist ein gzip-komprimierter Tarball eines veröffentlichten Pakets.
     """
     content_dir = os.path.join(cache_dir, "_cacache", "content-v2")
     if not os.path.isdir(content_dir):
@@ -984,7 +984,7 @@ def scan_npm_cache(cache_dir: str, verbose: bool = False) -> list[Finding]:
 
 
 # ---------------------------------------------------------------------------
-# Output
+# Ausgabe
 # ---------------------------------------------------------------------------
 
 SEVERITY_ORDER = {"HIGH": 0, "MEDIUM": 1, "LOW": 2, "INFO": 3}
@@ -996,7 +996,7 @@ SEVERITY_LABEL = {
     "INFO":   "[INFO]  ",
 }
 
-# ANSI color codes — only applied when writing to a real terminal.
+# ANSI-Farbcodes — nur aktiv beim Schreiben auf ein echtes Terminal.
 _RESET = "\033[0m"
 _ANSI = {
     "HIGH":   "\033[91m",        # bright red
@@ -1008,7 +1008,7 @@ _USE_COLOR = sys.stdout.isatty() and os.environ.get("NO_COLOR", "") == ""
 
 
 def _c(text: str, severity: str) -> str:
-    """Wrap *text* in the ANSI color for *severity* (no-op when color is disabled)."""
+    """Umschließt *text* mit dem ANSI-Farbcode für *severity* (ohne Wirkung wenn Farbe deaktiviert ist)."""
     if not _USE_COLOR:
         return text
     code = _ANSI.get(severity, "")
@@ -1081,7 +1081,7 @@ def print_json_report(findings: list[Finding]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Config & main
+# Konfiguration und Hauptprogramm
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -1151,7 +1151,7 @@ def main() -> int:
         scan_cache=args.scan_cache,
     )
 
-    # Collect files: prefer git-tracked list, fall back to filesystem walk
+    # Dateien sammeln: bevorzugt git-getrackte Liste, Fallback auf Dateisystem-Traversierung
     if is_git:
         try:
             files = get_tracked_files(repo_path)
@@ -1166,7 +1166,7 @@ def main() -> int:
             for fname in fnames:
                 files.append(os.path.join(root, fname))
 
-    # Apply skip patterns
+    # Ausschlussmuster anwenden
     def should_skip(path: str) -> bool:
         rel = os.path.relpath(path, repo_path)
         for pat in config.skip_patterns:
@@ -1191,7 +1191,7 @@ def main() -> int:
             if SEVERITY_ORDER.get(f.severity, 9) <= min_sev_order:
                 all_findings.append(f)
 
-    # Optional: npm cache scan
+    # Optional: npm-Cache-Scan
     if config.scan_cache:
         cache_dir = get_npm_cache_dir()
         if cache_dir:
