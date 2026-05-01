@@ -4,7 +4,8 @@ scan-npm.py - Durchsucht ein Node.js-Projekt / Git-Repository nach Indikatoren
 für bekannte JS/NPM-Trojaner, Supply-Chain-Angriffe und schädliche Code-Muster.
 
 Durchgeführte Prüfungen:
-  - Gefährliche Lifecycle-Hooks (postinstall/preinstall)
+  - Alle Lifecycle-Hooks (postinstall/preinstall/prepare/…) + gefährliche Muster darin
+  - binding.gyp und "gypfile": true (impliziter node-gyp Install-Hook ohne scripts-Eintrag)
   - Code-Verschleierungstechniken (Hex/Base64-eval, _0x-Muster)
   - Exfiltration von Umgebungsvariablen
   - Krypto-Mining-Indikatoren
@@ -460,6 +461,21 @@ def _scan_package_json_lines(lines: list[str], rel_path: str) -> list[Finding]:
 
     scripts = data.get("scripts", {})
 
+    # Alle vorhandenen Lifecycle-Hooks als INFO ausgeben (unabhängig von Gefährlichkeit)
+    for hook in LIFECYCLE_HOOKS:
+        script_value = scripts.get(hook, "")
+        if not script_value:
+            continue
+        findings.append(Finding(
+            category="LIFECYCLE_HOOKS_FOUND",
+            severity="INFO",
+            source=f"scripts.{hook}",
+            detail=f"Lifecycle-Hook '{hook}' vorhanden",
+            file=rel_path,
+            line=_find_hook_line(lines, hook),
+            context=script_value[:120],
+        ))
+
     # Check lifecycle hooks against INSTALL_SCRIPT_RULES
     for hook in LIFECYCLE_HOOKS:
         script_value = scripts.get(hook, "")
@@ -537,6 +553,21 @@ def _scan_package_json_lines(lines: list[str], rel_path: str) -> list[Finding]:
                     line=line_no,
                     context=f'"{pkg}": "{version}"',
                 ))
+
+    # "gypfile": true deklariert explizit einen nativen node-gyp Build
+    if data.get("gypfile"):
+        findings.append(Finding(
+            category="INSTALL_SCRIPT",
+            severity="MEDIUM",
+            source="package.json#gypfile",
+            detail=(
+                '"gypfile": true in package.json — deklariert nativen node-gyp Build beim Install '
+                "(versteckter Install-Hook ohne Eintrag in scripts)"
+            ),
+            file=rel_path,
+            line=_find_hook_line(lines, "gypfile"),
+            context='"gypfile": true',
+        ))
 
     return findings
 
@@ -769,6 +800,44 @@ def scan_js_file(path: str, rel_path: str) -> list[Finding]:
     return findings
 
 
+def _scan_binding_gyp_lines(lines: list[str], rel_path: str) -> list[Finding]:
+    """Flag binding.gyp presence (implicit node-gyp install hook) and scan content for suspicious patterns."""
+    findings = [Finding(
+        category="INSTALL_SCRIPT",
+        severity="MEDIUM",
+        source="binding.gyp",
+        detail=(
+            "binding.gyp vorhanden — npm triggert automatisch node-gyp build beim Install "
+            "(versteckter Install-Hook ohne Eintrag in scripts)"
+        ),
+        file=rel_path,
+        line=0,
+        context="binding.gyp",
+    )]
+    for line_no, raw_line in enumerate(lines, 1):
+        line_text = raw_line.rstrip("\n\r")
+        stripped = line_text.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        for pattern_str, description in INSTALL_SCRIPT_RULES:
+            if re.search(pattern_str, line_text, re.IGNORECASE):
+                findings.append(Finding(
+                    category="INSTALL_SCRIPT",
+                    severity="HIGH",
+                    source="binding.gyp",
+                    detail=f"Verdächtiges Muster in binding.gyp: {description}",
+                    file=rel_path,
+                    line=line_no,
+                    context=stripped[:120],
+                ))
+                break
+    return findings
+
+
+def scan_binding_gyp(path: str, rel_path: str) -> list[Finding]:
+    return _scan_binding_gyp_lines(read_lines(path), rel_path)
+
+
 def scan_file(path: str, config: "ScanConfig") -> list[Finding]:
     ext = Path(path).suffix.lower()
     if ext in SKIP_EXTENSIONS:
@@ -806,6 +875,8 @@ def scan_file(path: str, config: "ScanConfig") -> list[Finding]:
         return scan_package_json(path, rel_path)
     if name == "package-lock.json":
         return scan_package_lock(path, rel_path)
+    if name == "binding.gyp":
+        return scan_binding_gyp(path, rel_path)
     if name in (".npmrc", ".npmrc.example"):
         return scan_npmrc(path, rel_path)
     if name == ".yarnrc":
@@ -851,11 +922,12 @@ def _scan_tarball(tgz_path: str, label: str) -> list[Finding]:
                     is_js = ext in JS_EXTENSIONS
                     is_pkg = bname == "package.json"
                     is_lock = bname == "package-lock.json"
+                    is_binding_gyp = bname == "binding.gyp"
                     is_npmrc = bname in (".npmrc", ".npmrc.example")
                     is_yarnrc = bname == ".yarnrc"
                     is_yarnrc_yml = bname in (".yarnrc.yml", ".yarnrc.yaml")
 
-                    if not any((is_js, is_pkg, is_lock, is_npmrc, is_yarnrc, is_yarnrc_yml)):
+                    if not any((is_js, is_pkg, is_lock, is_binding_gyp, is_npmrc, is_yarnrc, is_yarnrc_yml)):
                         continue
 
                     fobj = tf.extractfile(member)
@@ -873,6 +945,8 @@ def _scan_tarball(tgz_path: str, label: str) -> list[Finding]:
                         findings.extend(_scan_package_json_lines(lines, rel))
                     elif is_lock:
                         findings.extend(_scan_package_lock_lines(lines, rel))
+                    elif is_binding_gyp:
+                        findings.extend(_scan_binding_gyp_lines(lines, rel))
                     elif is_npmrc:
                         findings.extend(_scan_npmrc_lines(lines, rel))
                     elif is_yarnrc:
@@ -913,12 +987,13 @@ def scan_npm_cache(cache_dir: str, verbose: bool = False) -> list[Finding]:
 # Output
 # ---------------------------------------------------------------------------
 
-SEVERITY_ORDER = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+SEVERITY_ORDER = {"HIGH": 0, "MEDIUM": 1, "LOW": 2, "INFO": 3}
 
 SEVERITY_LABEL = {
     "HIGH":   "[HIGH]  ",
     "MEDIUM": "[MED]   ",
     "LOW":    "[LOW]   ",
+    "INFO":   "[INFO]  ",
 }
 
 
@@ -937,7 +1012,7 @@ def print_text_report(findings: list[Finding]) -> None:
     print(f"  NPM/JS-Bedrohungsscan — {len(findings)} Befund(e)")
     print(f"{'='*72}\n")
 
-    category_order = ["INSTALL_SCRIPT", "EXFILTRATION",
+    category_order = ["LIFECYCLE_HOOKS_FOUND", "INSTALL_SCRIPT", "EXFILTRATION",
                       "FILESYSTEM_ATTACK", "REMOTE_EXEC", "OBFUSCATION",
                       "CRYPTOMINING", "SUPPLY_CHAIN"]
     all_cats = category_order + [c for c in by_category if c not in category_order]
@@ -958,10 +1033,11 @@ def print_text_report(findings: list[Finding]) -> None:
     highs   = sum(1 for f in findings if f.severity == "HIGH")
     mediums = sum(1 for f in findings if f.severity == "MEDIUM")
     lows    = sum(1 for f in findings if f.severity == "LOW")
+    infos   = sum(1 for f in findings if f.severity == "INFO")
 
     print(f"{'='*72}")
     print(f"  Gesamt: {len(findings)} Befund(e) in {len({f.file for f in findings})} Datei(en)"
-          f"  [HIGH={highs}  MEDIUM={mediums}  LOW={lows}]")
+          f"  [HIGH={highs}  MEDIUM={mediums}  LOW={lows}  INFO={infos}]")
     print(f"{'='*72}\n")
 
 
@@ -991,7 +1067,7 @@ class ScanConfig:
     include_modules: bool = False
     output_format: str = "text"
     no_fail: bool = False
-    min_severity: str = "LOW"
+    min_severity: str = "INFO"
     skip_patterns: list[str] = field(default_factory=list)
     scan_cache: bool = False
 
@@ -1022,8 +1098,8 @@ Beispiele:
                         help="Pfad zum Repository-Wurzelverzeichnis (Standard: .)")
     parser.add_argument("--include-modules", action="store_true",
                         help="node_modules/ ebenfalls scannen (kann langsam sein)")
-    parser.add_argument("--min-severity", choices=["HIGH", "MEDIUM", "LOW"], default="LOW",
-                        help="Minimaler Schweregrad für die Ausgabe (Standard: LOW)")
+    parser.add_argument("--min-severity", choices=["HIGH", "MEDIUM", "LOW", "INFO"], default="INFO",
+                        help="Minimaler Schweregrad für die Ausgabe (Standard: INFO)")
     parser.add_argument("--skip", nargs="*", default=[], metavar="MUSTER",
                         help="Reguläre Ausdrücke für zu überspringende Pfade")
     parser.add_argument("--format", choices=["text", "json"], default="text",
