@@ -97,7 +97,7 @@ class Finding:
 
 @dataclass
 class Whitelist:
-    ip_ranges: list[ipaddress.IPv4Network] = field(default_factory=list)
+    ip_ranges: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = field(default_factory=list)
     hostnames: list[str] = field(default_factory=list)
     email_domains: list[str] = field(default_factory=list)
     urls: list[str] = field(default_factory=list)
