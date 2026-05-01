@@ -16,6 +16,7 @@ declare -A ALIASES=(
     ["su"]="python3 ~/git/raspberrypi/tools/update-stack.py"
     ["aa"]="alias"
     ["gt"]="python3 ~/git/raspberrypi/tools/gitea-update-github-token.py"
+    ["uu"]="uv lock --upgrade && uv pip compile pyproject.toml -o requirements.txt"
 )
 
 FORCE=0
