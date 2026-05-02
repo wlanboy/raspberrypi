@@ -1,0 +1,101 @@
+services:
+
+  # ── LLM: Qwen3-8B (INT4) ─────────────────────────────────────────────────
+  # OpenAI-kompatible API: http://localhost:8081/v3/chat/completions
+  ovms-qwen3:
+    image: openvino/model_server:latest
+    user: "${UID:-1000}:${GID:-1000}"
+    restart: unless-stopped
+    volumes:
+      - /data/openvino/qwen3-8b-int4-cw-ov/1:/models/qwen3-8b:ro
+    ports:
+      - "9001:9000"   # gRPC
+      - "8081:8080"   # REST / OpenAI-kompatibel
+    command: >
+      --model_repository_path /models
+      --model_name qwen3-8b
+      --task text_generation
+      --target_device CPU
+      --port 9000
+      --rest_port 8080
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/v1/config"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ── LLM: Gemma-4-E4B Multimodal (INT4) ───────────────────────────────────
+  # OpenAI-kompatible API: http://localhost:8082/v3/chat/completions
+  ovms-gemma:
+    image: openvino/model_server:latest
+    user: "${UID:-1000}:${GID:-1000}"
+    restart: unless-stopped
+    volumes:
+      - /data/openvino/gemma-4-e4b-it-int4-ov/1:/models/gemma-4-e4b:ro
+    ports:
+      - "9002:9000"   # gRPC
+      - "8082:8080"   # REST / OpenAI-kompatibel
+    command: >
+      --model_repository_path /models
+      --model_name gemma-4-e4b
+      --task text_generation
+      --target_device CPU
+      --port 9000
+      --rest_port 8080
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/v1/config"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ── Speech: Whisper Small (INT8) ──────────────────────────────────────────
+  # OpenAI-kompatible API: http://localhost:8083/v3/audio/transcriptions
+  ovms-whisper-small:
+    image: openvino/model_server:latest
+    user: "${UID:-1000}:${GID:-1000}"
+    restart: unless-stopped
+    volumes:
+      - /data/openvino/whisper-small-int8-ov/1:/models/whisper-small:ro
+    ports:
+      - "9003:9000"   # gRPC
+      - "8083:8080"   # REST / OpenAI-kompatibel
+    command: >
+      --model_repository_path /models
+      --model_name whisper-small
+      --task automatic_speech_recognition
+      --target_device CPU
+      --port 9000
+      --rest_port 8080
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/v1/config"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ── Speech: Whisper Medium (EN, INT8) ────────────────────────────────────
+  # OpenAI-kompatible API: http://localhost:8084/v3/audio/transcriptions
+  ovms-whisper-medium-en:
+    image: openvino/model_server:latest
+    user: "${UID:-1000}:${GID:-1000}"
+    restart: unless-stopped
+    volumes:
+      - /data/openvino/whisper-medium-en-int8-ov/1:/models/whisper-medium-en:ro
+    ports:
+      - "9004:9000"   # gRPC
+      - "8084:8080"   # REST / OpenAI-kompatibel
+    command: >
+      --model_repository_path /models
+      --model_name whisper-medium-en
+      --task automatic_speech_recognition
+      --target_device CPU
+      --port 9000
+      --rest_port 8080
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/v1/config"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
