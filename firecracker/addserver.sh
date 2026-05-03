@@ -10,10 +10,11 @@
 #   mem_mib  – RAM in MiB          (Standard: 1024)
 #   disk_gb  – Disk-Größe in GB    (Standard: 5, muss ≥ 3 sein)
 #
-# Netzwerk-Schema (pro VM automatisch vergeben):
-#   VM-Index N → Subnetz 172.16.N.0/24
-#   Host-IP (tap):  172.16.N.1
-#   Guest-IP (VM):  172.16.N.2
+# Netzwerk-Schema (pro VM automatisch vergeben, /30-Subnetze sequentiell):
+#   VM-Index N → tap IP:  172.16.[(4*N+1)/256].[(4*N+1)%256]
+#                Guest-IP: 172.16.[(4*N+2)/256].[(4*N+2)%256]
+#   Beispiel N=0: tap=172.16.0.1/30, guest=172.16.0.2
+#   Beispiel N=1: tap=172.16.0.5/30, guest=172.16.0.6
 #
 # Voraussetzung: firecracker.sh wurde erfolgreich ausgeführt.
 
@@ -120,8 +121,10 @@ if [ -d "$VM_DIR" ]; then
         if ! ip link show "$TAP_DEV" &>/dev/null; then
             log "TAP-Interface $TAP_DEV fehlt – lege es neu an..."
             sudo ip tuntap add dev "$TAP_DEV" mode tap
-            sudo ip addr add "${HOST_IP}/24" dev "$TAP_DEV"
+            sudo ip addr add "${HOST_IP}/30" dev "$TAP_DEV"
             sudo ip link set "$TAP_DEV" up
+            # networkd neu laden, damit IPMasquerade-Regeln wieder aktiv sind
+            sudo systemctl reload-or-restart systemd-networkd || true
         fi
         # → Start-Abschnitt
         __restart=1
@@ -148,17 +151,22 @@ if [ "$__restart" = "0" ]; then
         fi
     done
 
-    # Subnetz: 172.16.{INDEX}.0/24
-    # Der Index-Bereich ist damit auf 0–254 begrenzt (255 Subnetze)
-    if [ "$INDEX" -gt 254 ]; then
-        err "Maximale Anzahl VMs (255) erreicht."
+    # Sequentielle /30-Subnetze: je VM 4 Adressen (tap IP + guest IP + Netz + Broadcast)
+    # Max. Index bei 172.16.0.0/16: (65535-2)/4 = 16383
+    if [ "$INDEX" -gt 16383 ]; then
+        err "Maximale Anzahl VMs (16384) erreicht."
     fi
 
-    HOST_IP="172.16.${INDEX}.1"
-    GUEST_IP="172.16.${INDEX}.2"
+    OFFSET=$(( INDEX * 4 ))
+    HOST_THIRD=$(( (OFFSET + 1) / 256 ))
+    HOST_FOURTH=$(( (OFFSET + 1) % 256 ))
+    GUEST_THIRD=$(( (OFFSET + 2) / 256 ))
+    GUEST_FOURTH=$(( (OFFSET + 2) % 256 ))
+    HOST_IP="172.16.${HOST_THIRD}.${HOST_FOURTH}"
+    GUEST_IP="172.16.${GUEST_THIRD}.${GUEST_FOURTH}"
     TAP_DEV="tap${INDEX}"
-    # MAC: AA:FC:00:00:<INDEX_HIGH>:<INDEX_LOW>
-    MAC=$(printf "AA:FC:00:00:%02X:%02X" $(( INDEX / 256 )) $(( INDEX % 256 )))
+    # MAC: 06:00:AC:10:<octet3>:<octet4> – letzte 4 Bytes codieren die Guest-IP (172.16.X.Y)
+    MAC=$(printf "06:00:AC:10:%02X:%02X" "$GUEST_THIRD" "$GUEST_FOURTH")
 
     ok "Index $INDEX → $TAP_DEV, Host: $HOST_IP, Gast: $GUEST_IP, MAC: $MAC"
 
@@ -226,7 +234,7 @@ EOF
 Name=eth0
 
 [Network]
-Address=${GUEST_IP}/24
+Address=${GUEST_IP}/30
 Gateway=${HOST_IP}
 DNS=8.8.8.8
 DNS=1.1.1.1
@@ -234,8 +242,14 @@ MTUBytes=1450
 EOF
 
     # ── Benutzer anlegen, SSH-Schlüssel und sudo-Rechte einrichten ───────────
-    # authorized_keys bevorzugen; sonst alle .pub-Dateien zusammenführen
-    if [ -f "$HOST_HOME/.ssh/authorized_keys" ]; then
+    # Eigene Identity-Keys bevorzugen (id_*.pub) — das sind die Schlüssel, mit
+    # denen der Benutzer sich von diesem Rechner aus verbindet.
+    # authorized_keys enthält Schlüssel, die für den Host autorisiert sind,
+    # aber nicht zwingend den eigenen lokalen Schlüssel.
+    mapfile -t _id_pubkeys < <(find "$HOST_HOME/.ssh" -maxdepth 1 -name 'id_*.pub' 2>/dev/null | sort)
+    if [ ${#_id_pubkeys[@]} -gt 0 ]; then
+        SSH_KEY_SOURCE="id_pubkeys"
+    elif [ -f "$HOST_HOME/.ssh/authorized_keys" ]; then
         SSH_KEY_SOURCE="$HOST_HOME/.ssh/authorized_keys"
     else
         SSH_KEY_SOURCE=$(find "$HOST_HOME/.ssh" -maxdepth 1 -name '*.pub' 2>/dev/null | head -1)
@@ -247,7 +261,11 @@ EOF
         sudo chroot "$MOUNT_DIR" usermod -aG sudo "$HOST_USER"
         sudo mkdir -p "$MOUNT_DIR/home/$HOST_USER/.ssh"
         sudo chmod 700 "$MOUNT_DIR/home/$HOST_USER/.ssh"
-        sudo cp "$SSH_KEY_SOURCE" "$MOUNT_DIR/home/$HOST_USER/.ssh/authorized_keys"
+        if [ "$SSH_KEY_SOURCE" = "id_pubkeys" ]; then
+            cat "${_id_pubkeys[@]}" | sudo tee "$MOUNT_DIR/home/$HOST_USER/.ssh/authorized_keys" > /dev/null
+        else
+            sudo cp "$SSH_KEY_SOURCE" "$MOUNT_DIR/home/$HOST_USER/.ssh/authorized_keys"
+        fi
         sudo chmod 600 "$MOUNT_DIR/home/$HOST_USER/.ssh/authorized_keys"
         sudo chroot "$MOUNT_DIR" chown -R "${HOST_USER}:${HOST_USER}" "/home/${HOST_USER}/.ssh"
         printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$HOST_USER" \
@@ -283,7 +301,7 @@ EOF
         skip "$TAP_DEV existiert bereits."
     else
         sudo ip tuntap add dev "$TAP_DEV" mode tap
-        sudo ip addr add "${HOST_IP}/24" dev "$TAP_DEV"
+        sudo ip addr add "${HOST_IP}/30" dev "$TAP_DEV"
         sudo ip link set "$TAP_DEV" up
         ok "$TAP_DEV angelegt: $HOST_IP"
     fi
@@ -304,9 +322,18 @@ EOF
 Name=${TAP_DEV}
 
 [Network]
-Address=${HOST_IP}/24
+Address=${HOST_IP}/30
 IPMasquerade=ipv4
 IPForward=yes
+EOF
+
+    # VM-Metadatei: ermöglicht removeserver.sh auch nach Löschen des VM-Verzeichnisses
+    # noch TAP-Name, IPs und VM-Name zu ermitteln.
+    sudo tee "/etc/systemd/network/50-${TAP_DEV}.vm" > /dev/null <<EOF
+NAME=${NAME}
+TAP_DEV=${TAP_DEV}
+HOST_IP=${HOST_IP}
+GUEST_IP=${GUEST_IP}
 EOF
 
     # systemd-networkd neu laden, damit die neuen Dateien aktiv werden
@@ -320,7 +347,7 @@ EOF
 {
   "boot-source": {
     "kernel_image_path": "${VMLINUX}",
-    "boot_args": "console=ttyS0 reboot=k panic=1 pci=off ipv6.disable=1 net.ifnames=0 biosdevname=0 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory"
+    "boot_args": "console=ttyS0 reboot=k panic=1 pci=off root=/dev/vda rw ipv6.disable=1 net.ifnames=0 biosdevname=0 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory"
   },
   "drives": [
     {
