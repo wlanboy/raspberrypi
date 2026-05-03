@@ -69,7 +69,7 @@ ok "KVM verfügbar."
 log "Prüfe System-Pakete..."
 
 # Nur fehlende Pakete installieren; dpkg -s liefert Exit 0 wenn installiert
-PACKAGES=(debootstrap e2fsprogs curl qemu-utils)
+PACKAGES=(debootstrap e2fsprogs curl)
 TO_INSTALL=()
 for pkg in "${PACKAGES[@]}"; do
     dpkg -s "$pkg" &>/dev/null || TO_INSTALL+=("$pkg")
@@ -211,6 +211,16 @@ systemctl enable systemd-networkd
 systemctl mask systemd-resolved
 echo -e "nameserver 8.8.8.8\nnameserver 1.1.1.1" > /etc/resolv.conf
 
+# Netzwerk-Konfiguration für eth0; addserver.sh kann das überschreiben.
+mkdir -p /etc/systemd/network
+cat > /etc/systemd/network/20-eth0.network <<'NET'
+[Match]
+Name=eth0
+
+[Network]
+DHCP=yes
+NET
+
 # Seriellen Konsolen-Login ohne Passwort-Prompt.
 # Firecracker leitet stdout/stderr auf ttyS0 um – ohne diesen Override
 # bleibt getty auf einem interaktiven Login-Prompt hängen.
@@ -223,6 +233,10 @@ GETTY
 
 # fstab: Firecracker stellt das Root-Device immer als /dev/vda bereit
 echo "/dev/vda / ext4 defaults,noatime 0 1" > /etc/fstab
+
+# SSH Host-Keys aus dem Golden Image entfernen – jede geklonte VM
+# generiert beim ersten Boot eigene Keys (via ssh-keygen -A in sshd).
+rm -f /etc/ssh/ssh_host_*
 
 CHROOT
 
