@@ -38,7 +38,17 @@ if [[ ! "$NAME" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
     exit 1
 fi
 
-if [ "$DISK_GB" -lt 3 ]; then
+if [[ ! "$VCPUS" =~ ^[0-9]+$ ]] || [ "$VCPUS" -lt 1 ]; then
+    echo "Fehler: vcpus muss eine positive Ganzzahl sein."
+    exit 1
+fi
+
+if [[ ! "$MEM_MIB" =~ ^[0-9]+$ ]] || [ "$MEM_MIB" -lt 128 ]; then
+    echo "Fehler: mem_mib muss eine Ganzzahl ≥ 128 sein."
+    exit 1
+fi
+
+if [[ ! "$DISK_GB" =~ ^[0-9]+$ ]] || [ "$DISK_GB" -lt 3 ]; then
     echo "Fehler: Disk-Größe muss mindestens 3 GB betragen (Basis-Image-Größe)."
     exit 1
 fi
@@ -93,10 +103,13 @@ if [ -d "$VM_DIR" ]; then
         log "VM '$NAME' existiert, ist aber gestoppt – starte neu..."
         # Socket aus vorherigem Lauf entfernen
         rm -f "$VM_DIR/firecracker.socket"
-        # Direkt zum Start-Abschnitt springen (Index etc. aus Metadaten laden)
+        # Direkt zum Start-Abschnitt springen (alle Metadaten laden)
         INDEX=$(cat "$VM_DIR/index")
         GUEST_IP=$(cat "$VM_DIR/guest_ip")
         HOST_IP=$(cat "$VM_DIR/host_ip")
+        VCPUS=$(cat "$VM_DIR/vcpus"    2>/dev/null || echo "$VCPUS")
+        MEM_MIB=$(cat "$VM_DIR/mem_mib" 2>/dev/null || echo "$MEM_MIB")
+        DISK_GB=$(cat "$VM_DIR/disk_gb" 2>/dev/null || echo "$DISK_GB")
         TAP_DEV="tap${INDEX}"
         # TAP-Interface erneut anlegen, falls nach Reboot verschwunden
         if ! ip link show "$TAP_DEV" &>/dev/null; then
@@ -151,6 +164,9 @@ if [ "$__restart" = "0" ]; then
     echo "$GUEST_IP" > "$VM_DIR/guest_ip"
     echo "$HOST_IP"  > "$VM_DIR/host_ip"
     echo "$TAP_DEV"  > "$VM_DIR/tap_dev"
+    echo "$VCPUS"    > "$VM_DIR/vcpus"
+    echo "$MEM_MIB"  > "$VM_DIR/mem_mib"
+    echo "$DISK_GB"  > "$VM_DIR/disk_gb"
 
     # ── Rootfs aus Basis-Image kopieren ──────────────────────────────────────
     #
@@ -167,8 +183,9 @@ if [ "$__restart" = "0" ]; then
         log "Vergrößere Disk auf ${DISK_GB}G..."
         truncate -s "${DISK_GB}G" "$VM_ROOTFS"
         # e2fsck prüft und repariert das Dateisystem vor dem Resize
-        sudo e2fsck -f -y "$VM_ROOTFS" \
-            || err "e2fsck schlug fehl (Exit $?) – Basis-Image prüfen: $BASE_ROOTFS"
+        sudo e2fsck -f -y "$VM_ROOTFS"; _ec=$?
+        [ "$_ec" -le 2 ] \
+            || err "e2fsck schlug fehl (Exit $_ec) – Basis-Image prüfen: $BASE_ROOTFS"
         sudo resize2fs "$VM_ROOTFS" \
             || err "resize2fs schlug fehl (Exit $?) – Basis-Image prüfen: $BASE_ROOTFS"
         ok "Disk auf ${DISK_GB}G vergrößert."
@@ -302,7 +319,6 @@ fi   # Ende des "neue VM anlegen"-Blocks
 
 VM_SOCKET="$VM_DIR/firecracker.socket"
 VM_CONFIG="$VM_DIR/config.json"
-VM_ROOTFS="$VM_DIR/rootfs.ext4"
 
 log "Starte VM '$NAME'..."
 firecracker \
