@@ -38,12 +38,65 @@ BASE_DISK_SIZE="3G"
 log()  { echo "[$(date '+%H:%M:%S')] $*"; }
 ok()   { echo "[$(date '+%H:%M:%S')] ✓ $*"; }
 skip() { echo "[$(date '+%H:%M:%S')] – übersprungen: $*"; }
+warn() { echo "[$(date '+%H:%M:%S')] ! $*" >&2; }
 
 require_sudo() {
-    # Sicherstellen, dass sudo-Credentials gecacht sind, damit spätere
-    # Befehle nicht interaktiv fragen.
     sudo -v
 }
+
+# ── Reset-Modus ───────────────────────────────────────────────────────────────
+#
+# ./firecracker.sh --reset
+#   Beendet laufende VMs, löst alle Loop-Mounts, entfernt FC_DIR und Binary,
+#   damit ein vollständiger Neuaufbau ohne Altlasten möglich ist.
+
+RESET_MODE=0
+for _arg in "$@"; do [ "$_arg" = "--reset" ] && RESET_MODE=1; done
+
+reset_environment() {
+    log "Reset: Stoppe laufende Firecracker-Prozesse..."
+    if pgrep -x firecracker &>/dev/null; then
+        sudo pkill -x firecracker || true
+        # Kurz warten damit der Kernel die TAP-Devices und Loop-Leases freigibt.
+        sleep 2
+        pgrep -x firecracker &>/dev/null && warn "Einige Firecracker-Prozesse laufen noch – fortfahren trotzdem."
+    else
+        skip "Keine laufenden Firecracker-Prozesse."
+    fi
+
+    log "Reset: Löse alle Mounts und Loop-Devices für Images in $FC_DIR..."
+    if [ -d "$FC_DIR" ]; then
+        # Alle .ext4-Images unter FC_DIR durchsuchen
+        while IFS= read -r img; do
+            # Loop-Devices die an dieses Image gebunden sind
+            while IFS= read -r loopdev; do
+                [ -z "$loopdev" ] && continue
+                # Zugehörigen Mount-Punkt aus /proc/mounts lesen und unmounten
+                awk -v d="$loopdev" '$1==d {print $2}' /proc/mounts \
+                    | xargs -r sudo umount -l 2>/dev/null || true
+                sudo losetup -d "$loopdev" 2>/dev/null || true
+                log "  Getrennt: $loopdev ($img)"
+            done < <(sudo losetup -j "$img" 2>/dev/null | cut -d: -f1)
+        done < <(find "$FC_DIR" -name "*.ext4" 2>/dev/null)
+
+        # Fallback: direkte Datei-Mounts die noch in /proc/mounts stehen
+        grep "$FC_DIR" /proc/mounts 2>/dev/null \
+            | awk '{print $2}' | sort -r \
+            | xargs -r sudo umount -l 2>/dev/null || true
+    fi
+
+    log "Reset: Entferne $FC_DIR und $FC_BINARY..."
+    sudo rm -rf "$FC_DIR"
+    sudo rm -f  "$FC_BINARY"
+
+    ok "Reset abgeschlossen – Neuaufbau startet."
+    echo ""
+}
+
+if [ "$RESET_MODE" = "1" ]; then
+    require_sudo
+    reset_environment
+fi
 
 # ── 1. KVM-Zugriff prüfen ────────────────────────────────────────────────────
 
