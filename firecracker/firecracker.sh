@@ -8,30 +8,26 @@
 #
 # Verzeichnisstruktur nach dem Lauf:
 #   $FC_DIR/
-#     vmlinux          – Kernel-Binärdatei für alle VMs
-#     base.ext4        – Goldenes Root-Image (Vorlage für addserver.sh)
-#     vms/             – Verzeichnis für laufende VM-Instanzen
+#     firecracker.version  – Gecachte Firecracker-Version
+#     vmlinux              – Kernel-Binärdatei für alle VMs
+#     kernel.version       – Kernel-Version (Idempotenz-Check)
+#     kernel.key           – S3-Key des Kernels (Download-Cache)
+#     base.ext4            – Goldenes Root-Image (Vorlage für addserver.sh)
+#     rootfs.version       – Ubuntu-Version des Rootfs (Idempotenz-Check)
+#     ubuntu.key           – S3-Key des Ubuntu-Rootfs (Download-Cache)
+#     vms/                 – Verzeichnis für laufende VM-Instanzen
 
 set -euo pipefail
 
 # ── Konfiguration ────────────────────────────────────────────────────────────
 
-# Konkrete Version; überschreibbar mit: FC_VERSION="v1.9.0" ./firecracker.sh
-# "latest" löst automatisch die neueste Version über die GitHub-API auf.
-FC_VERSION="${FC_VERSION:-v1.15.1}"
+FC_VERSION="${FC_VERSION:-latest}"
 FC_DIR="${FC_DIR:-$HOME/firecracker}"
 FC_BINARY="/usr/local/bin/firecracker"
-ARCH=$(uname -m)   # x86_64 oder aarch64
+FC_VERSION_FILE="$FC_DIR/firecracker.version"
+ARCH=$(uname -m)
 
-# Kernel von Firecrackers öffentlichem S3-Bucket (getestet mit v1.15.x)
-KERNEL_URL="https://s3.amazonaws.com/spec.ccfc.min/img/quickstart_guide/${ARCH}/kernels/vmlinux.bin"
-
-# Ubuntu-Release für das Basis-Image
-UBUNTU_RELEASE="noble"          # 24.04 LTS
-UBUNTU_MIRROR="http://archive.ubuntu.com/ubuntu/"
-
-# Basisgröße des goldenen Images (wird von addserver.sh pro VM angepasst)
-BASE_DISK_SIZE="3G"
+BASE_DISK_SIZE="5G"
 
 # ── Hilfsfunktionen ──────────────────────────────────────────────────────────
 
@@ -39,16 +35,34 @@ log()  { echo "[$(date '+%H:%M:%S')] $*"; }
 ok()   { echo "[$(date '+%H:%M:%S')] ✓ $*"; }
 skip() { echo "[$(date '+%H:%M:%S')] – übersprungen: $*"; }
 warn() { echo "[$(date '+%H:%M:%S')] ! $*" >&2; }
+err()  { echo "[$(date '+%H:%M:%S')] FEHLER: $*" >&2; exit 1; }
 
-require_sudo() {
-    sudo -v
+require_sudo() { sudo -v; }
+
+# Sicherungskopie einer Datei vor Veränderung (ohne sudo)
+backup() {
+    local f="$1"
+    if [ -f "$f" ]; then
+        local ts; ts=$(date '+%Y%m%d-%H%M%S')
+        cp -a "$f" "${f}.bak.${ts}"
+        log "Backup erstellt: ${f}.bak.${ts}"
+    fi
+}
+
+# Sicherungskopie einer Datei vor Veränderung (mit sudo)
+sudo_backup() {
+    local f="$1"
+    if [ -f "$f" ]; then
+        local ts; ts=$(date '+%Y%m%d-%H%M%S')
+        sudo cp -a "$f" "${f}.bak.${ts}"
+        log "Backup erstellt: ${f}.bak.${ts}"
+    fi
 }
 
 # ── Reset-Modus ───────────────────────────────────────────────────────────────
 #
 # ./firecracker.sh --reset
-#   Beendet laufende VMs, löst alle Loop-Mounts, entfernt FC_DIR und Binary,
-#   damit ein vollständiger Neuaufbau ohne Altlasten möglich ist.
+#   Beendet laufende VMs, löst alle Loop-Mounts, entfernt FC_DIR und Binary.
 
 RESET_MODE=0
 for _arg in "$@"; do [ "$_arg" = "--reset" ] && RESET_MODE=1; done
@@ -57,7 +71,6 @@ reset_environment() {
     log "Reset: Stoppe laufende Firecracker-Prozesse..."
     if pgrep -x firecracker &>/dev/null; then
         sudo pkill -x firecracker || true
-        # Kurz warten damit der Kernel die TAP-Devices und Loop-Leases freigibt.
         sleep 2
         pgrep -x firecracker &>/dev/null && warn "Einige Firecracker-Prozesse laufen noch – fortfahren trotzdem."
     else
@@ -66,12 +79,9 @@ reset_environment() {
 
     log "Reset: Löse alle Mounts und Loop-Devices für Images in $FC_DIR..."
     if [ -d "$FC_DIR" ]; then
-        # Alle .ext4-Images unter FC_DIR durchsuchen
         while IFS= read -r img; do
-            # Loop-Devices die an dieses Image gebunden sind
             while IFS= read -r loopdev; do
                 [ -z "$loopdev" ] && continue
-                # Zugehörigen Mount-Punkt aus /proc/mounts lesen und unmounten
                 awk -v d="$loopdev" '$1==d {print $2}' /proc/mounts \
                     | xargs -r sudo umount -l 2>/dev/null || true
                 sudo losetup -d "$loopdev" 2>/dev/null || true
@@ -79,7 +89,6 @@ reset_environment() {
             done < <(sudo losetup -j "$img" 2>/dev/null | cut -d: -f1)
         done < <(find "$FC_DIR" -name "*.ext4" 2>/dev/null)
 
-        # Fallback: direkte Datei-Mounts die noch in /proc/mounts stehen
         grep "$FC_DIR" /proc/mounts 2>/dev/null \
             | awk '{print $2}' | sort -r \
             | xargs -r sudo umount -l 2>/dev/null || true
@@ -98,12 +107,16 @@ if [ "$RESET_MODE" = "1" ]; then
     reset_environment
 fi
 
+# ── 0. Verzeichnisstruktur vorbereiten ──────────────────────────────────────
+# Muss vor allen anderen Schritten erfolgen, da Versionsdateien in FC_DIR liegen.
+
+mkdir -p "$FC_DIR/vms"
+
 # ── 1. KVM-Zugriff prüfen ────────────────────────────────────────────────────
 
 log "Prüfe KVM-Zugriff..."
 
 if [ ! -e /dev/kvm ]; then
-    # Kernel-Modul laden, falls KVM-Device fehlt
     sudo modprobe kvm
     sudo modprobe kvm_intel 2>/dev/null || sudo modprobe kvm_amd 2>/dev/null || true
 fi
@@ -111,7 +124,6 @@ fi
 if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
     log "Füge $USER zur Gruppe kvm hinzu – bitte danach neu anmelden."
     sudo usermod -aG kvm "$USER"
-    # In der aktuellen Session sofort Zugriff gewähren ohne Re-Login
     sudo chmod o+rw /dev/kvm
 fi
 
@@ -121,8 +133,7 @@ ok "KVM verfügbar."
 
 log "Prüfe System-Pakete..."
 
-# Nur fehlende Pakete installieren; dpkg -s liefert Exit 0 wenn installiert
-PACKAGES=(debootstrap e2fsprogs curl)
+PACKAGES=(curl jq e2fsprogs squashfs-tools)
 TO_INSTALL=()
 for pkg in "${PACKAGES[@]}"; do
     dpkg -s "$pkg" &>/dev/null || TO_INSTALL+=("$pkg")
@@ -130,7 +141,6 @@ done
 
 if [ ${#TO_INSTALL[@]} -gt 0 ]; then
     log "Installiere: ${TO_INSTALL[*]}"
-    # DEBIAN_FRONTEND=noninteractive verhindert interaktive Dialoge (z. B. Zeitzone)
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q "${TO_INSTALL[@]}"
     ok "Pakete installiert: ${TO_INSTALL[*]}"
 else
@@ -141,74 +151,135 @@ fi
 
 log "Prüfe Firecracker-Binary..."
 
-# "latest" zur konkreten Versions-Tag auflösen (z. B. "v1.9.1")
 if [ "$FC_VERSION" = "latest" ]; then
-    FC_VERSION=$(curl -fsSL \
-        "https://api.github.com/repos/firecracker-microvm/firecracker/releases/latest" \
-        | grep '"tag_name"' | cut -d'"' -f4)
+    FC_VERSION=$(basename "$(curl -fsSLI -o /dev/null -w '%{url_effective}' \
+        "https://github.com/firecracker-microvm/firecracker/releases/latest")")
     log "Neueste Version: $FC_VERSION"
 fi
 
 INSTALLED_VERSION=""
-if command -v firecracker &>/dev/null; then
+if [ -f "$FC_VERSION_FILE" ]; then
+    INSTALLED_VERSION=$(cat "$FC_VERSION_FILE")
+elif command -v firecracker &>/dev/null; then
     INSTALLED_VERSION=$(firecracker --version 2>&1 | grep -oP 'v[\d.]+' | head -1 || true)
 fi
 
-if [ "$INSTALLED_VERSION" = "$FC_VERSION" ]; then
+if [ "$INSTALLED_VERSION" = "$FC_VERSION" ] && [ -x "$FC_BINARY" ]; then
     skip "Firecracker $FC_VERSION bereits installiert."
 else
     log "Lade Firecracker $FC_VERSION herunter..."
-
-    # Releases werden als .tgz-Archiv ausgeliefert.
-    # Inhalt: release-<version>-<arch>/firecracker-<version>-<arch>
     TGZ_URL="https://github.com/firecracker-microvm/firecracker/releases/download/${FC_VERSION}/firecracker-${FC_VERSION}-${ARCH}.tgz"
     TGZ_TMP="/tmp/firecracker-${FC_VERSION}.tgz"
     EXTRACT_DIR="/tmp/firecracker-extract-$$"
 
+    sudo_backup "$FC_BINARY"
+
     curl -fsSL "$TGZ_URL" -o "$TGZ_TMP"
     mkdir -p "$EXTRACT_DIR"
     tar -xzf "$TGZ_TMP" -C "$EXTRACT_DIR"
-
-    # Binary aus dem Unterverzeichnis im Archiv holen
     sudo mv "${EXTRACT_DIR}/release-${FC_VERSION}-${ARCH}/firecracker-${FC_VERSION}-${ARCH}" "$FC_BINARY"
     sudo chmod +x "$FC_BINARY"
-
     rm -rf "$TGZ_TMP" "$EXTRACT_DIR"
+
+    echo "$FC_VERSION" > "$FC_VERSION_FILE"
     ok "Firecracker $FC_VERSION installiert: $FC_BINARY"
 fi
 
-# ── 4. Verzeichnisstruktur anlegen ──────────────────────────────────────────
+# ── 4. Pfade für Artefakte definieren ───────────────────────────────────────
 
-log "Verzeichnisstruktur in $FC_DIR anlegen..."
-mkdir -p "$FC_DIR/vms"
-ok "Verzeichnis $FC_DIR bereit."
-
-# ── 5. Kernel herunterladen ─────────────────────────────────────────────────
+CI_VERSION="${FC_VERSION%.*}"
+S3_BASE="http://spec.ccfc.min.s3.amazonaws.com"
+S3_HTTPS="https://s3.amazonaws.com/spec.ccfc.min"
 
 VMLINUX="$FC_DIR/vmlinux"
+KERNEL_VERSION_FILE="$FC_DIR/kernel.version"
+KERNEL_KEY_FILE="$FC_DIR/kernel.key"
 
-if [ -f "$VMLINUX" ]; then
-    skip "Kernel bereits vorhanden: $VMLINUX"
+BASE_ROOTFS="$FC_DIR/base.ext4"
+ROOTFS_VERSION_FILE="$FC_DIR/rootfs.version"
+UBUNTU_KEY_FILE="$FC_DIR/ubuntu.key"
+
+# ── 5. CI-Versionen ermitteln ────────────────────────────────────────────────
+#
+# S3-Abfragen werden übersprungen wenn alle lokalen Artefakte vorhanden sind
+# und die gecachten Keys zur aktuellen CI-Version passen.
+
+KERNEL_VERSION=""
+KERNEL_KEY=""
+UBUNTU_VERSION=""
+UBUNTU_KEY=""
+_needs_s3=0
+
+if [ -f "$KERNEL_KEY_FILE" ] && [ -f "$KERNEL_VERSION_FILE" ] && [ -f "$VMLINUX" ]; then
+    _cached_key=$(cat "$KERNEL_KEY_FILE")
+    if [[ "$_cached_key" == *"${CI_VERSION}"* ]]; then
+        KERNEL_KEY="$_cached_key"
+        KERNEL_VERSION=$(cat "$KERNEL_VERSION_FILE")
+    else
+        _needs_s3=1
+    fi
 else
-    log "Lade Firecracker-Kernel herunter (vmlinux)..."
-    curl -fsSL "$KERNEL_URL" -o "$VMLINUX"
+    _needs_s3=1
+fi
+
+if [ -f "$UBUNTU_KEY_FILE" ] && [ -f "$ROOTFS_VERSION_FILE" ] && [ -f "$BASE_ROOTFS" ]; then
+    _cached_key=$(cat "$UBUNTU_KEY_FILE")
+    if [[ "$_cached_key" == *"${CI_VERSION}"* ]]; then
+        UBUNTU_KEY="$_cached_key"
+        UBUNTU_VERSION=$(cat "$ROOTFS_VERSION_FILE")
+    else
+        _needs_s3=1
+    fi
+else
+    _needs_s3=1
+fi
+
+if [ "$_needs_s3" = "0" ]; then
+    skip "CI-Artefakte aus Cache: Kernel ${KERNEL_VERSION}, Ubuntu ${UBUNTU_VERSION}"
+else
+    log "Ermittle CI-Artefakte für Firecracker ${FC_VERSION} (CI: ${CI_VERSION})..."
+
+    KERNEL_KEY=$(curl -fsSL \
+        "${S3_BASE}/?prefix=firecracker-ci/${CI_VERSION}/${ARCH}/vmlinux-&list-type=2" \
+        | grep -oP "(?<=<Key>)(firecracker-ci/${CI_VERSION}/${ARCH}/vmlinux-[0-9]+\.[0-9]+\.[0-9]{1,3})(?=</Key>)" \
+        | sort -V | tail -1)
+    [ -n "$KERNEL_KEY" ] || err "Kein Kernel im CI-Bucket für ${CI_VERSION}/${ARCH} gefunden."
+    KERNEL_VERSION=$(basename "$KERNEL_KEY")
+
+    UBUNTU_KEY=$(curl -fsSL \
+        "${S3_BASE}/?prefix=firecracker-ci/${CI_VERSION}/${ARCH}/ubuntu-&list-type=2" \
+        | grep -oP "(?<=<Key>)(firecracker-ci/${CI_VERSION}/${ARCH}/ubuntu-[0-9]+\.[0-9]+\.squashfs)(?=</Key>)" \
+        | sort -V | tail -1)
+    [ -n "$UBUNTU_KEY" ] || err "Kein Ubuntu-Rootfs im CI-Bucket für ${CI_VERSION}/${ARCH} gefunden."
+    UBUNTU_VERSION=$(basename "$UBUNTU_KEY" .squashfs | grep -oE '[0-9]+\.[0-9]+')
+
+    echo "$KERNEL_KEY"   > "$KERNEL_KEY_FILE"
+    echo "$UBUNTU_KEY"   > "$UBUNTU_KEY_FILE"
+
+    ok "Kernel: ${KERNEL_VERSION}, Ubuntu: ${UBUNTU_VERSION}"
+fi
+
+# ── 6. Kernel herunterladen ─────────────────────────────────────────────────
+
+if [ -f "$VMLINUX" ] && [ "$(cat "$KERNEL_VERSION_FILE" 2>/dev/null)" = "$KERNEL_VERSION" ]; then
+    skip "Kernel bereits vorhanden: $KERNEL_VERSION"
+else
+    log "Lade Kernel herunter: $KERNEL_VERSION..."
+    backup "$VMLINUX"
+    curl -fsSL --progress-bar "${S3_HTTPS}/${KERNEL_KEY}" -o "$VMLINUX"
+    echo "$KERNEL_VERSION" > "$KERNEL_VERSION_FILE"
     ok "Kernel gespeichert: $VMLINUX"
 fi
 
-# ── 6. Basis-Rootfs erstellen ────────────────────────────────────────────────
+# ── 7. Basis-Rootfs erstellen ────────────────────────────────────────────────
 #
-# Dieses "goldene" Image dient als Vorlage. addserver.sh kopiert es und
-# passt Hostname sowie Netzwerk an. Das Original bleibt unverändert.
-
-BASE_ROOTFS="$FC_DIR/base.ext4"
+# Das CI-Ubuntu-Squashfs wird entpackt, konfiguriert und als ext4 gespeichert.
+# addserver.sh kopiert dieses goldene Image und passt es pro VM an.
 
 _base_ok=0
-if [ -f "$BASE_ROOTFS" ]; then
-    # Hängende Loop-Devices vom Image bereinigen, bevor wir read-only einbinden.
-    sudo losetup -j "$BASE_ROOTFS" 2>/dev/null | cut -d: -f1 | xargs -r sudo losetup -d
+if [ -f "$BASE_ROOTFS" ] && [ "$(cat "$ROOTFS_VERSION_FILE" 2>/dev/null)" = "$UBUNTU_VERSION" ]; then
     _tmp_check=$(mktemp -d)
     if sudo mount -t ext4 -o loop,ro "$BASE_ROOTFS" "$_tmp_check" 2>/dev/null; then
-        # Vollständig bootstrapped: os-release und ausführbare Shell müssen vorhanden sein.
         if [ -f "$_tmp_check/etc/os-release" ] && [ -x "$_tmp_check/bin/bash" ]; then
             _base_ok=1
         fi
@@ -218,53 +289,53 @@ if [ -f "$BASE_ROOTFS" ]; then
 fi
 
 if [ "$_base_ok" = "1" ]; then
-    skip "Basis-Rootfs bereits vorhanden: $BASE_ROOTFS"
+    skip "Basis-Rootfs bereits vorhanden: base.ext4 (Ubuntu ${UBUNTU_VERSION})"
 else
-    [ -f "$BASE_ROOTFS" ] && log "Basis-Rootfs unvollständig – wird neu erstellt..."
-    log "Erstelle Basis-Rootfs (debootstrap, dauert einige Minuten)..."
+    [ -f "$BASE_ROOTFS" ] && log "Basis-Rootfs veraltet oder beschädigt – wird neu erstellt..."
+    log "Erstelle Basis-Rootfs aus Ubuntu ${UBUNTU_VERSION} (CI-Image)..."
 
-    # Hängende Loop-Devices vom vorherigen Fehlversuch bereinigen
-    sudo losetup -j "$BASE_ROOTFS" 2>/dev/null | cut -d: -f1 | xargs -r sudo losetup -d
-
-    # Sparse-Datei anlegen; -F überspringt den interaktiven Überschreib-Dialog
-    truncate -s "$BASE_DISK_SIZE" "$BASE_ROOTFS"
-    mkfs.ext4 -q -F "$BASE_ROOTFS"
-
+    TMP_DIR=$(mktemp -d)
     MOUNT_DIR=$(mktemp -d)
-    sudo mount -t ext4 -o loop "$BASE_ROOTFS" "$MOUNT_DIR"
+    trap 'sudo umount "$MOUNT_DIR" 2>/dev/null || true; sudo rm -rf "$TMP_DIR" "$MOUNT_DIR"' EXIT
 
-    log "Führe debootstrap aus (${UBUNTU_RELEASE})..."
-    # Pakete direkt beim Bootstrap einbinden – vermeidet einen separaten apt-get-Lauf
-    # und stellt sicher, dass debootstrap Abhängigkeiten aus dem richtigen Pool löst.
-    sudo debootstrap \
-        --include=iproute2,iputils-ping,curl,ca-certificates,openssh-server,systemd,systemd-resolved \
-        "$UBUNTU_RELEASE" "$MOUNT_DIR" "$UBUNTU_MIRROR"
+    CACHE_SQUASHFS="$FC_DIR/ubuntu-${UBUNTU_VERSION}.squashfs"
+
+    if [ -f "$CACHE_SQUASHFS" ]; then
+        log "Nutze vorhandenes Squashfs aus Cache: $CACHE_SQUASHFS"
+        cp "$CACHE_SQUASHFS" "$TMP_DIR/ubuntu.squashfs"
+    else
+        log "Lade Ubuntu-Squashfs herunter (${UBUNTU_VERSION})..."
+        curl -fsSL --progress-bar "${S3_HTTPS}/${UBUNTU_KEY}" -o "$CACHE_SQUASHFS"
+        cp "$CACHE_SQUASHFS" "$TMP_DIR/ubuntu.squashfs"
+    fi
+
+    log "Entpacke Squashfs..."
+    sudo unsquashfs -d "$TMP_DIR/rootfs" "$TMP_DIR/ubuntu.squashfs" \
+        || err "unsquashfs fehlgeschlagen – squashfs-tools installiert?"
 
     log "Konfiguriere Basis-Image (chroot)..."
-    sudo chroot "$MOUNT_DIR" /bin/bash <<'CHROOT'
+    sudo chroot "$TMP_DIR/rootfs" /bin/bash <<'CHROOT'
 set -e
 
-# Root-Passwort (nur für Entwicklung; in Produktion SSH-Key verwenden)
+mkdir -p /etc/ssh /etc/systemd/network /etc/sudoers.d
+
 echo "root:root" | chpasswd
 
-# SSH-Root-Login und Passwort-Auth aktivieren.
-# Drop-in überschreibt ggf. abweichende Defaults in sshd_config.d/.
 mkdir -p /etc/ssh/sshd_config.d
 cat > /etc/ssh/sshd_config.d/99-firecracker.conf <<'SSHCFG'
 PermitRootLogin yes
 PasswordAuthentication yes
 SSHCFG
-systemctl enable ssh
 
-# systemd-networkd konfiguriert eth0; systemd-resolved wird maskiert.
-# In der microVM kann resolved keinen echten DNS-Server erreichen und blockiert
-# dadurch nss-lookup.target – und damit sshd – für bis zu 90 Sekunden.
-# Stattdessen: statisches resolv.conf.
+systemctl enable ssh  2>/dev/null || \
+systemctl enable sshd 2>/dev/null || true
+
 systemctl enable systemd-networkd
-systemctl mask systemd-resolved
+
+# systemd-resolved verhindert DNS in der MicroVM (kein D-Bus, kein Stub-Resolver).
+systemctl mask systemd-resolved 2>/dev/null || true
 echo -e "nameserver 8.8.8.8\nnameserver 1.1.1.1" > /etc/resolv.conf
 
-# Netzwerk-Konfiguration für eth0; addserver.sh kann das überschreiben.
 mkdir -p /etc/systemd/network
 cat > /etc/systemd/network/20-eth0.network <<'NET'
 [Match]
@@ -274,9 +345,6 @@ Name=eth0
 DHCP=yes
 NET
 
-# Seriellen Konsolen-Login ohne Passwort-Prompt.
-# Firecracker leitet stdout/stderr auf ttyS0 um – ohne diesen Override
-# bleibt getty auf einem interaktiven Login-Prompt hängen.
 mkdir -p /etc/systemd/system/getty@ttyS0.service.d
 cat > /etc/systemd/system/getty@ttyS0.service.d/override.conf <<'GETTY'
 [Service]
@@ -284,48 +352,77 @@ ExecStart=
 ExecStart=-/sbin/agetty --autologin root --keep-baud ttyS0 115200 vt100
 GETTY
 
-# fstab: Firecracker stellt das Root-Device immer als /dev/vda bereit
 echo "/dev/vda / ext4 defaults,noatime 0 1" > /etc/fstab
 
-# SSH Host-Keys aus dem Golden Image entfernen – jede geklonte VM
-# generiert beim ersten Boot eigene Keys (via ssh-keygen -A in sshd).
+# SSH Host-Keys entfernen – jede VM generiert beim Start eigene Keys
 rm -f /etc/ssh/ssh_host_*
 
+# Entropy-Seeding via virtio-rng (/dev/hwrng) vor dem SSH-Start.
+cat > /etc/systemd/system/seed-entropy.service <<'SVC'
+[Unit]
+Description=Seed kernel entropy pool from virtio-rng
+DefaultDependencies=no
+Before=ssh.service ssh.socket sysinit.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'dd if=/dev/hwrng of=/dev/random bs=512 count=1 2>/dev/null || true'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target
+SVC
+
+systemctl enable seed-entropy.service
 CHROOT
 
+    log "Erstelle ext4-Image (${BASE_DISK_SIZE})..."
+    backup "$BASE_ROOTFS"
+    truncate -s "$BASE_DISK_SIZE" "$BASE_ROOTFS"
+    sudo mkfs.ext4 -q -F "$BASE_ROOTFS"
+
+    sudo mount -t ext4 -o loop "$BASE_ROOTFS" "$MOUNT_DIR" \
+        || err "Konnte ext4-Image nicht mounten."
+    sudo cp -a "$TMP_DIR/rootfs/." "$MOUNT_DIR/"
     sudo umount "$MOUNT_DIR"
-    rmdir "$MOUNT_DIR"
-    ok "Basis-Rootfs erstellt: $BASE_ROOTFS"
+
+    trap - EXIT
+    sudo rm -rf "$TMP_DIR" "$MOUNT_DIR"
+
+    echo "$UBUNTU_VERSION" > "$ROOTFS_VERSION_FILE"
+    ok "Basis-Rootfs erstellt: $BASE_ROOTFS (Ubuntu ${UBUNTU_VERSION}, Kernel ${KERNEL_VERSION})"
 fi
 
-# ── 7. IP-Forwarding dauerhaft aktivieren ───────────────────────────────────
-#
-# Ohne ip_forward=1 werden Pakete, die von der VM kommen, nicht an das
-# externe Interface weitergeleitet – kein Internet-Zugriff aus der VM.
+# ── 8. IP-Forwarding dauerhaft aktivieren ───────────────────────────────────
 
 log "Aktiviere IP-Forwarding..."
 
 SYSCTL_FILE="/etc/sysctl.d/99-firecracker.conf"
-if [ -f "$SYSCTL_FILE" ]; then
-    skip "sysctl-Konfiguration bereits vorhanden."
-else
+if [ ! -f "$SYSCTL_FILE" ]; then
     sudo tee "$SYSCTL_FILE" > /dev/null <<'EOF'
-# Aktiviert durch firecracker.sh – benötigt für VM-Netzwerk
 net.ipv4.ip_forward = 1
 EOF
-    sudo sysctl -p "$SYSCTL_FILE"
-    ok "IP-Forwarding aktiviert."
+    ok "IP-Forwarding-Konfiguration geschrieben."
+else
+    skip "sysctl-Konfiguration bereits vorhanden."
 fi
 
-# ── 8. Zusammenfassung ───────────────────────────────────────────────────────
+if [ "$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null)" != "1" ]; then
+    sudo sysctl -p "$SYSCTL_FILE" > /dev/null
+    ok "IP-Forwarding aktiviert."
+else
+    skip "IP-Forwarding bereits aktiv."
+fi
+
+# ── 9. Zusammenfassung ───────────────────────────────────────────────────────
 
 echo ""
 echo "════════════════════════════════════════════════════════"
 echo " Firecracker-Umgebung ist bereit"
 echo "════════════════════════════════════════════════════════"
 echo " Firecracker:  $FC_BINARY ($FC_VERSION)"
-echo " Kernel:       $VMLINUX"
-echo " Basis-Image:  $BASE_ROOTFS"
+echo " Kernel:       $VMLINUX ($KERNEL_VERSION)"
+echo " Basis-Image:  $BASE_ROOTFS (Ubuntu ${UBUNTU_VERSION})"
 echo " VMs:          $FC_DIR/vms/"
 echo ""
 echo " Neue VM starten:"
