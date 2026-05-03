@@ -53,6 +53,10 @@ if [[ ! "$DISK_GB" =~ ^[0-9]+$ ]] || [ "$DISK_GB" -lt 3 ]; then
     exit 1
 fi
 
+# Nutzer, der die VM anlegt (wird als sudo-fähiger Benutzer in der VM angelegt)
+HOST_USER="${SUDO_USER:-$USER}"
+HOST_HOME="$(eval echo ~"$HOST_USER")"
+
 # ── Pfade ─────────────────────────────────────────────────────────────────────
 
 FC_DIR="${FC_DIR:-$HOME/firecracker}"
@@ -107,9 +111,10 @@ if [ -d "$VM_DIR" ]; then
         INDEX=$(cat "$VM_DIR/index")
         GUEST_IP=$(cat "$VM_DIR/guest_ip")
         HOST_IP=$(cat "$VM_DIR/host_ip")
-        VCPUS=$(cat "$VM_DIR/vcpus"    2>/dev/null || echo "$VCPUS")
-        MEM_MIB=$(cat "$VM_DIR/mem_mib" 2>/dev/null || echo "$MEM_MIB")
-        DISK_GB=$(cat "$VM_DIR/disk_gb" 2>/dev/null || echo "$DISK_GB")
+        VCPUS=$(cat "$VM_DIR/vcpus"      2>/dev/null || echo "$VCPUS")
+        MEM_MIB=$(cat "$VM_DIR/mem_mib"   2>/dev/null || echo "$MEM_MIB")
+        DISK_GB=$(cat "$VM_DIR/disk_gb"   2>/dev/null || echo "$DISK_GB")
+        HOST_USER=$(cat "$VM_DIR/host_user" 2>/dev/null || echo "$HOST_USER")
         TAP_DEV="tap${INDEX}"
         # TAP-Interface erneut anlegen, falls nach Reboot verschwunden
         if ! ip link show "$TAP_DEV" &>/dev/null; then
@@ -164,9 +169,10 @@ if [ "$__restart" = "0" ]; then
     echo "$GUEST_IP" > "$VM_DIR/guest_ip"
     echo "$HOST_IP"  > "$VM_DIR/host_ip"
     echo "$TAP_DEV"  > "$VM_DIR/tap_dev"
-    echo "$VCPUS"    > "$VM_DIR/vcpus"
-    echo "$MEM_MIB"  > "$VM_DIR/mem_mib"
-    echo "$DISK_GB"  > "$VM_DIR/disk_gb"
+    echo "$VCPUS"     > "$VM_DIR/vcpus"
+    echo "$MEM_MIB"   > "$VM_DIR/mem_mib"
+    echo "$DISK_GB"   > "$VM_DIR/disk_gb"
+    echo "$HOST_USER" > "$VM_DIR/host_user"
 
     # ── Rootfs aus Basis-Image kopieren ──────────────────────────────────────
     #
@@ -226,6 +232,40 @@ DNS=8.8.8.8
 DNS=1.1.1.1
 MTUBytes=1450
 EOF
+
+    # ── Benutzer anlegen, SSH-Schlüssel und sudo-Rechte einrichten ───────────
+    # authorized_keys bevorzugen; sonst alle .pub-Dateien zusammenführen
+    if [ -f "$HOST_HOME/.ssh/authorized_keys" ]; then
+        SSH_KEY_SOURCE="$HOST_HOME/.ssh/authorized_keys"
+    else
+        SSH_KEY_SOURCE=$(find "$HOST_HOME/.ssh" -maxdepth 1 -name '*.pub' 2>/dev/null | head -1)
+    fi
+
+    if [ -n "$SSH_KEY_SOURCE" ]; then
+        log "Lege Benutzer '$HOST_USER' mit SSH-Schlüssel an..."
+        sudo chroot "$MOUNT_DIR" useradd -m -s /bin/bash "$HOST_USER"
+        sudo chroot "$MOUNT_DIR" usermod -aG sudo "$HOST_USER"
+        sudo mkdir -p "$MOUNT_DIR/home/$HOST_USER/.ssh"
+        sudo chmod 700 "$MOUNT_DIR/home/$HOST_USER/.ssh"
+        sudo cp "$SSH_KEY_SOURCE" "$MOUNT_DIR/home/$HOST_USER/.ssh/authorized_keys"
+        sudo chmod 600 "$MOUNT_DIR/home/$HOST_USER/.ssh/authorized_keys"
+        sudo chroot "$MOUNT_DIR" chown -R "${HOST_USER}:${HOST_USER}" "/home/${HOST_USER}/.ssh"
+        printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$HOST_USER" \
+            | sudo tee "$MOUNT_DIR/etc/sudoers.d/$HOST_USER" > /dev/null
+        sudo chmod 440 "$MOUNT_DIR/etc/sudoers.d/$HOST_USER"
+        ok "Benutzer '$HOST_USER' mit SSH-Schlüssel und sudo-Rechten angelegt."
+    else
+        log "Warnung: Kein SSH-Schlüssel für '$HOST_USER' gefunden – nur root-Login (Passwort: root) möglich."
+    fi
+
+    # SSH-Host-Keys vorab generieren – verhindert Hänger beim ersten Boot
+    # (Firecracker VMs haben keinen virtio-rng, Entropy-Pool füllt sich langsam)
+    # Keys direkt auf den Mount-Pfad generieren (kein Chroot nötig, Host hat Entropy)
+    for _kt in rsa ecdsa ed25519; do
+        sudo ssh-keygen -q -N "" -t "$_kt" \
+            -f "$MOUNT_DIR/etc/ssh/ssh_host_${_kt}_key"
+    done
+    ok "SSH-Host-Keys vorausgeneriert."
 
     sudo umount "$MOUNT_DIR"
     rmdir "$MOUNT_DIR"
@@ -301,6 +341,7 @@ EOF
       "host_dev_name": "${TAP_DEV}"
     }
   ],
+  "entropy": {},
   "logger": {
     "log_path": "${VM_DIR}/firecracker.log",
     "level": "Info",
@@ -358,8 +399,9 @@ echo " Disk:        ${DISK_GB} GB"
 echo " IP (Gast):   $GUEST_IP"
 echo " IP (Host):   $(cat "$VM_DIR/host_ip")"
 echo ""
+HOST_USER=$(cat "$VM_DIR/host_user" 2>/dev/null || echo "root")
 echo " SSH (nach Boot, ca. 3-5 Sek.):"
-echo "   ssh root@${GUEST_IP}     # Passwort: root"
+echo "   ssh ${HOST_USER}@${GUEST_IP}"
 echo ""
 echo " Konsolenausgabe live verfolgen:"
 echo "   tail -f $VM_DIR/console.log"
