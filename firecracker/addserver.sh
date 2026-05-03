@@ -241,11 +241,12 @@ DNS=1.1.1.1
 MTUBytes=1450
 EOF
 
-    # ── Benutzer anlegen, SSH-Schlüssel und sudo-Rechte einrichten ───────────
-    # Eigene Identity-Keys bevorzugen (id_*.pub) — das sind die Schlüssel, mit
-    # denen der Benutzer sich von diesem Rechner aus verbindet.
-    # authorized_keys enthält Schlüssel, die für den Host autorisiert sind,
-    # aber nicht zwingend den eigenen lokalen Schlüssel.
+    # Unprivilegierten Ping für alle Benutzer erlauben
+    sudo mkdir -p "$MOUNT_DIR/etc/sysctl.d"
+    printf 'net.ipv4.ping_group_range = 0 2147483647\n' \
+        | sudo tee "$MOUNT_DIR/etc/sysctl.d/10-ping.conf" > /dev/null
+
+    # ── SSH-Schlüssel für root einrichten ────────────────────────────────────
     mapfile -t _id_pubkeys < <(find "$HOST_HOME/.ssh" -maxdepth 1 -name 'id_*.pub' 2>/dev/null | sort)
     if [ ${#_id_pubkeys[@]} -gt 0 ]; then
         SSH_KEY_SOURCE="id_pubkeys"
@@ -256,9 +257,10 @@ EOF
     fi
 
     if [ -n "$SSH_KEY_SOURCE" ]; then
-        log "Lege Benutzer '$HOST_USER' mit SSH-Schlüssel an..."
+        log "Lege Benutzer '$HOST_USER' an und richte SSH-Schlüssel ein..."
         sudo chroot "$MOUNT_DIR" useradd -m -s /bin/bash "$HOST_USER"
-        sudo chroot "$MOUNT_DIR" usermod -aG sudo "$HOST_USER"
+
+        # SSH-Key für den Benutzer
         sudo mkdir -p "$MOUNT_DIR/home/$HOST_USER/.ssh"
         sudo chmod 700 "$MOUNT_DIR/home/$HOST_USER/.ssh"
         if [ "$SSH_KEY_SOURCE" = "id_pubkeys" ]; then
@@ -268,12 +270,20 @@ EOF
         fi
         sudo chmod 600 "$MOUNT_DIR/home/$HOST_USER/.ssh/authorized_keys"
         sudo chroot "$MOUNT_DIR" chown -R "${HOST_USER}:${HOST_USER}" "/home/${HOST_USER}/.ssh"
-        printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$HOST_USER" \
-            | sudo tee "$MOUNT_DIR/etc/sudoers.d/$HOST_USER" > /dev/null
-        sudo chmod 440 "$MOUNT_DIR/etc/sudoers.d/$HOST_USER"
-        ok "Benutzer '$HOST_USER' mit SSH-Schlüssel und sudo-Rechten angelegt."
+
+        # SSH-Key auch für root
+        sudo mkdir -p "$MOUNT_DIR/root/.ssh"
+        sudo chmod 700 "$MOUNT_DIR/root/.ssh"
+        if [ "$SSH_KEY_SOURCE" = "id_pubkeys" ]; then
+            cat "${_id_pubkeys[@]}" | sudo tee "$MOUNT_DIR/root/.ssh/authorized_keys" > /dev/null
+        else
+            sudo cp "$SSH_KEY_SOURCE" "$MOUNT_DIR/root/.ssh/authorized_keys"
+        fi
+        sudo chmod 600 "$MOUNT_DIR/root/.ssh/authorized_keys"
+
+        ok "Benutzer '$HOST_USER' und root mit SSH-Schlüssel eingerichtet."
     else
-        log "Warnung: Kein SSH-Schlüssel für '$HOST_USER' gefunden – nur root-Login (Passwort: root) möglich."
+        log "Warnung: Kein SSH-Schlüssel gefunden – nur root-Login per Passwort (root) möglich."
     fi
 
     # SSH-Host-Keys vorab generieren – verhindert Hänger beim ersten Boot
