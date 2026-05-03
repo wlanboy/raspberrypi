@@ -1,468 +1,230 @@
-# Firecracker auf Ubuntu Server – Vollständige Anleitung
+# Firecracker MicroVM-Fleet auf Ubuntu Server
 
 Firecracker ist ein schlanker VMM (Virtual Machine Monitor) von AWS, der auf KVM aufbaut und
-MicroVMs in Millisekunden startet. Diese Anleitung richtet eine vollständige Firecracker-Umgebung
-auf Ubuntu 22.04 / 24.04 LTS ein, inklusive Netzwerk, Root-Dateisystem und Startkonfiguration.
+echte VMs in unter 125 ms startet. Im Vergleich zu Docker-Containern bietet Firecracker:
 
----
+- **Vollständige Kernel-Isolation** – jede VM läuft mit eigenem Kernel, eigenem Speicher-Namespace und eigenem Netzwerk-Stack; ein Angreifer, der aus einer VM ausbricht, landet nicht auf dem Host
+- **Kein Kernel-Sharing** – Container teilen sich den Host-Kernel; Firecracker-VMs nicht; CVEs im Host-Kernel sind für den Gast-Kernel irrelevant
+- **Vorhersehbares Ressourcen-Limit** – vCPU- und RAM-Obergrenzen sind hardware-erzwungen, nicht durch cgroups approximiert
+- **Schlanke Angriffsfläche** – Firecracker hat ~50.000 Zeilen Rust-Code und keinen BIOS/UEFI-Stack, keine PCI-Bus-Emulation, keine USB-Unterstützung
+- **Produktionsreif** – von AWS für Lambda und Fargate eingesetzt; jede Invocation läuft in einer eigenen MicroVM
 
-## 1. Voraussetzungen prüfen
+Dieses Repository enthält drei Skripte für den kompletten Lebenszyklus einer MicroVM-Fleet:
 
-### Hardware-Virtualisierung und KVM-Zugriff
-
-```bash
-# CPU muss Intel VT-x oder AMD-V unterstützen
-egrep -c '(vmx|svm)' /proc/cpuinfo
-# Ergebnis > 0 bedeutet: Virtualisierung aktiv
-
-# KVM-Kernel-Module laden (falls noch nicht aktiv)
-sudo modprobe kvm
-sudo modprobe kvm_intel   # Intel
-# sudo modprobe kvm_amd   # AMD
-
-# Zugriffsrechte auf /dev/kvm prüfen
-# Ausgabe "Bereit!" = alles ok, sonst fehlt Benutzer in Gruppe kvm
-[ -r /dev/kvm ] && [ -w /dev/kvm ] && echo "Bereit!" || echo "KVM Zugriff fehlt"
-
-# Aktuellen Benutzer zur kvm-Gruppe hinzufügen (einmalig, danach neu anmelden)
-sudo usermod -aG kvm $USER
-```
-
-### Abhängigkeiten installieren
-
-```bash
-# debootstrap: erzeugt ein minimales Ubuntu-Rootfs
-# qemu-utils: stellt qemu-img für Image-Operationen bereit (optional)
-sudo apt update && sudo apt install -y debootstrap qemu-utils curl
-```
-
----
-
-## 2. Firecracker-Binary installieren
-
-```bash
-# Aktuelle Releaseversion – bei Bedarf anpassen:
-# https://github.com/firecracker-microvm/firecracker/releases
-RELEASE_VERSION="v1.15.1"
-RELEASE_URL="https://github.com/firecracker-microvm/firecracker/releases/download/${RELEASE_VERSION}"
-
-# Architektur automatisch ermitteln (x86_64 oder aarch64)
-ARCH=$(uname -m)
-
-# Binary herunterladen und ausführbar machen
-curl -L "${RELEASE_URL}/firecracker-${RELEASE_VERSION}-${ARCH}" -o firecracker
-chmod +x firecracker
-
-# Systemweit verfügbar machen
-sudo mv firecracker /usr/local/bin/
-
-# Installation prüfen
-firecracker --version
-```
-
----
-
-## 3. Kernel herunterladen
-
-Firecracker benötigt einen Linux-Kernel als flache Binärdatei (`vmlinux`), kein komprimiertes Image.
-Die Firecracker-Entwickler stellen vorgefertigte Kernel über ihren S3-Bucket bereit.
-
-```bash
-ARCH=$(uname -m)
-KERNEL_DIR="$HOME/firecracker"
-mkdir -p "$KERNEL_DIR"
-
-# Vorgefertigten Quickstart-Kernel herunterladen (empfohlen für den Einstieg)
-curl -L \
-  "https://s3.amazonaws.com/spec.ccfc.min/img/quickstart_guide/${ARCH}/kernels/vmlinux.bin" \
-  -o "${KERNEL_DIR}/vmlinux"
-
-# Alternativ: Kernel aus dem Firecracker-CI (spezifische Version)
-# curl -L \
-#   "https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.10/${ARCH}/vmlinux-6.1.102" \
-#   -o "${KERNEL_DIR}/vmlinux"
-```
-
----
-
-## 4. Root-Dateisystem (rootfs) erstellen
-
-Das Root-Dateisystem ist eine einfache ext4-Datei, die wie eine Festplatte in die VM eingehängt wird.
-
-```bash
-ROOTFS="${KERNEL_DIR}/ubuntu-rootfs.ext4"
-
-# Leere 5-GB-Datei anlegen (sparse, belegt keinen echten Speicher sofort)
-truncate -s 5G "$ROOTFS"
-
-# Als ext4-Dateisystem formatieren
-mkfs.ext4 "$ROOTFS"
-
-# Temporäres Mountpoint-Verzeichnis anlegen
-sudo mkdir -p /tmp/ubuntu-rootfs
-
-# Image einhängen, damit wir es befüllen können
-sudo mount "$ROOTFS" /tmp/ubuntu-rootfs
-
-# Minimales Ubuntu 24.04 (noble) installieren
-# Dieser Schritt lädt ~300 MB und dauert einige Minuten
-sudo debootstrap noble /tmp/ubuntu-rootfs http://archive.ubuntu.com/ubuntu/
-```
-
-### Rootfs konfigurieren (im chroot)
-
-```bash
-sudo chroot /tmp/ubuntu-rootfs /bin/bash <<'EOF'
-
-# --- Benutzer und Authentifizierung ---
-# Root-Passwort setzen (für Testzwecke; in Produktion SSH-Keys verwenden)
-echo "root:root" | chpasswd
-
-# --- Pakete installieren ---
-apt-get update -q
-# Netzwerk-Tools, curl für k3s-Installation, SSH-Server, systemd-Netzwerkverwaltung
-apt-get install -y --no-install-recommends \
-    iproute2 iputils-ping curl ca-certificates \
-    openssh-server systemd-networkd
-
-# --- Hostname setzen ---
-echo "firecracker-vm" > /etc/hostname
-
-# Hosts-Datei anpassen, damit der Hostname lokal auflösbar ist
-cat > /etc/hosts <<HOSTS
-127.0.0.1   localhost
-127.0.1.1   firecracker-vm
-HOSTS
-
-# --- Netzwerk: statische IP für eth0 ---
-# Firecracker hat kein DHCP, daher statische Konfiguration notwendig.
-# Die IP 172.16.0.2 gehört zur VM, 172.16.0.1 ist das Host-Gateway (tap0).
-mkdir -p /etc/systemd/network
-cat > /etc/systemd/network/20-eth0.network <<NET
-[Match]
-Name=eth0
-
-[Network]
-Address=172.16.0.2/24
-Gateway=172.16.0.1
-DNS=8.8.8.8
-NET
-
-# systemd-networkd als Netzwerkdienst aktivieren
-systemctl enable systemd-networkd
-
-# --- Serielle Konsole: automatischer Root-Login ---
-# Firecracker leitet die VM-Ausgabe auf ttyS0 um.
-# Ohne diesen Override blockiert getty auf einen Login-Prompt.
-mkdir -p /etc/systemd/system/getty@ttyS0.service.d
-cat > /etc/systemd/system/getty@ttyS0.service.d/override.conf <<GETTY
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin root --keep-baud ttyS0 115200 vt100
-GETTY
-
-# --- SSH: Root-Login erlauben (nur für Testzwecke) ---
-sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
-systemctl enable ssh
-
-# --- fstab: rootfs eintragen ---
-# Firecracker stellt das Root-Device als /dev/vda bereit
-echo "/dev/vda / ext4 defaults,noatime 0 1" > /etc/fstab
-
-EOF
-```
-
-```bash
-# Image aushängen
-sudo umount /tmp/ubuntu-rootfs
-sudo rmdir /tmp/ubuntu-rootfs
-
-echo "Rootfs fertig: $ROOTFS"
-```
-
----
-
-## 5. Netzwerk auf dem Host konfigurieren
-
-### TAP-Interface anlegen (temporär, geht nach Reboot verloren)
-
-```bash
-# tap0: virtuelles Netzwerkinterface, das Firecracker mit dem Host verbindet
-sudo ip tuntap add dev tap0 mode tap
-
-# IP-Adresse des Hosts im VM-Netzwerk (= Standard-Gateway für die VM)
-sudo ip addr add 172.16.0.1/24 dev tap0
-
-# Interface aktivieren
-sudo ip link set tap0 up
-
-# IP-Forwarding aktivieren (ermöglicht Routing zwischen tap0 und externem Interface)
-sudo sysctl -w net.ipv4.ip_forward=1
-
-# NAT: VM-Traffic über das externe Interface ins Internet weiterleiten.
-# WICHTIG: 'eth0' durch das tatsächliche externe Interface ersetzen.
-# Aktuelles Interface ermitteln: ip route get 8.8.8.8 | awk '{print $5; exit}'
-EXTERNAL_IF=$(ip route get 8.8.8.8 | awk '{print $5; exit}')
-sudo iptables -t nat -A POSTROUTING -o "$EXTERNAL_IF" -j MASQUERADE
-
-echo "Netzwerk bereit. Externes Interface: $EXTERNAL_IF"
-```
-
-### TAP-Interface dauerhaft machen (systemd-networkd)
-
-```bash
-# netdev-Datei: definiert das TAP-Interface
-sudo tee /etc/systemd/network/10-tap0.netdev > /dev/null <<'EOF'
-[NetDev]
-Name=tap0
-Kind=tap
-
-[Tap]
-# Ohne User-Einschränkung: Interface für alle zugänglich
-EOF
-
-# network-Datei: konfiguriert die IP-Adresse
-sudo tee /etc/systemd/network/10-tap0.network > /dev/null <<'EOF'
-[Match]
-Name=tap0
-
-[Network]
-Address=172.16.0.1/24
-# IPMasquerade leitet Traffic automatisch weiter (ersetzt iptables-Regel)
-IPMasquerade=ipv4
-IPForward=yes
-EOF
-
-sudo systemctl enable --now systemd-networkd
-```
-
----
-
-## 6. Firecracker-Konfigurationsdatei erstellen
-
-```bash
-KERNEL_DIR="$HOME/firecracker"
-
-cat > "${KERNEL_DIR}/config.json" <<EOF
-{
-  "boot-source": {
-    "kernel_image_path": "${KERNEL_DIR}/vmlinux",
-    "boot_args": "console=ttyS0 reboot=k panic=1 pci=off nomodule ipv6.disable=1 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory ip=172.16.0.2::172.16.0.1:255.255.255.0::eth0:off"
-  },
-  "drives": [
-    {
-      "drive_id": "rootfs",
-      "path_on_host": "${KERNEL_DIR}/ubuntu-rootfs.ext4",
-      "is_root_device": true,
-      "is_read_only": false
-    }
-  ],
-  "machine-config": {
-    "vcpu_count": 2,
-    "mem_size_mib": 2028
-  },
-  "network-interfaces": [
-    {
-      "iface_id": "eth0",
-      "guest_mac": "AA:FC:00:00:00:01",
-      "host_dev_name": "tap0"
-    }
-  ],
-  "logger": {
-    "log_path": "/tmp/firecracker.log",
-    "level": "Info",
-    "show_level": true,
-    "show_log_origin": false
-  }
-}
-EOF
-
-echo "Konfiguration erstellt: ${KERNEL_DIR}/config.json"
-```
-
-**Erklärung der wichtigsten Boot-Argumente:**
-
-| Argument | Bedeutung |
+| Skript | Zweck |
 |---|---|
-| `console=ttyS0` | Konsolenausgabe auf seriellen Port (von Firecracker lesbar) |
-| `reboot=k` | Bei Kernel-Panic: sauber beenden statt neu starten |
-| `panic=1` | Kernel-Panic nach 1 Sekunde auslösen statt zu hängen |
-| `pci=off` | Kein PCI-Bus (Firecracker verwendet Virtio direkt) |
-| `nomodule` | Keine Kernel-Module laden (nicht vorhanden im vmlinux) |
-| `cgroup_enable=...` | Cgroup-Unterstützung für k3s aktivieren |
-| `ip=...` | Netzwerkkonfiguration direkt per Kernel-Parameter setzen |
+| [firecracker.sh](firecracker.sh) | Einmalige Host-Einrichtung: Binary, Kernel, goldenes Base-Image |
+| [addserver.sh](addserver.sh) | Neue VM aus dem Base-Image klonen und starten |
+| [removeserver.sh](removeserver.sh) | VM stoppen und alle Ressourcen sauber entfernen |
 
 ---
 
-## 7. Firecracker starten
+## Voraussetzungen
 
-```bash
-KERNEL_DIR="$HOME/firecracker"
-SOCKET="/tmp/firecracker.socket"
-
-# Alten Socket entfernen, falls vorhanden
-rm -f "$SOCKET"
-
-# Firecracker starten
-# --api-sock: Unix-Socket für die REST-API (Steuerung über curl möglich)
-# --config-file: alle Einstellungen aus JSON laden
-firecracker \
-  --api-sock "$SOCKET" \
-  --config-file "${KERNEL_DIR}/config.json"
-```
-
-Die VM startet sofort und gibt ihre Konsolenausgabe direkt im Terminal aus.
-Mit `Ctrl+C` wird die VM beendet.
-
-### VM im Hintergrund starten
-
-```bash
-SOCKET="/tmp/firecracker.socket"
-rm -f "$SOCKET"
-
-# Im Hintergrund starten, Ausgabe in Logdatei umleiten
-firecracker \
-  --api-sock "$SOCKET" \
-  --config-file "${KERNEL_DIR}/config.json" \
-  > /tmp/firecracker-console.log 2>&1 &
-
-FIRECRACKER_PID=$!
-echo "Firecracker PID: $FIRECRACKER_PID"
-echo "Konsolenlog: tail -f /tmp/firecracker-console.log"
-
-# Warten bis die VM hochgefahren ist, dann per SSH verbinden
-sleep 5
-ssh root@172.16.0.2
-```
+- Ubuntu 22.04 / 24.04 LTS (x86_64 oder aarch64)
+- CPU mit Intel VT-x oder AMD-V (`egrep -c '(vmx|svm)' /proc/cpuinfo` → Wert > 0)
+- Zugriff auf `/dev/kvm` (KVM-Gruppe oder `sudo`)
+- `sudo`-Rechte für Netzwerk- und Package-Operationen
 
 ---
 
-## 8. VM über die REST-API steuern
+## Schnellstart
 
-Firecracker bietet eine HTTP-API über den Unix-Socket.
-Damit lässt sich die VM auch nach dem Start noch konfigurieren.
+### 1. Host einrichten
 
 ```bash
-SOCKET="/tmp/firecracker.socket"
+./firecracker.sh
+```
 
-# Status der VM abfragen
+[firecracker.sh](firecracker.sh) erledigt alles einmalig und idempotent:
+
+1. KVM-Zugriff prüfen und einrichten
+2. Pakete installieren (`curl`, `jq`, `e2fsprogs`, `squashfs-tools`)
+3. Firecracker-Binary in `/usr/local/bin/` installieren (neueste Version automatisch ermittelt)
+4. Passenden Kernel aus dem Firecracker-CI-S3-Bucket laden
+5. Goldenes Base-Image (`base.ext4`) aus dem CI-Ubuntu-Squashfs erstellen und konfigurieren
+6. IP-Forwarding dauerhaft via `/etc/sysctl.d/99-firecracker.conf` aktivieren
+
+Alle Artefakte landen in `~/firecracker/`:
+
+| Datei | Inhalt |
+|---|---|
+| `firecracker.version` | Gecachte Firecracker-Version |
+| `vmlinux` | Kernel-Binary für alle VMs |
+| `kernel.key` / `kernel.version` | S3-Pfad und Version des Kernels |
+| `base.ext4` | Goldenes Root-Image (Vorlage für jede neue VM) |
+| `ubuntu.key` / `rootfs.version` | S3-Pfad und Version des Ubuntu-Squashfs |
+| `vms/` | Verzeichnis für alle VM-Instanzen |
+
+**Neustart / Reset:** `./firecracker.sh --reset` stoppt alle laufenden VMs, löst alle Loop-Mounts und entfernt Binary sowie `~/firecracker/` vollständig, bevor ein sauberer Neuaufbau beginnt.
+
+### 2. VM starten
+
+```bash
+./addserver.sh <name> [vcpus] [mem_mib] [disk_gb]
+# Beispiel:
+./addserver.sh web01 2 1024 10
+```
+
+[addserver.sh](addserver.sh) klont das goldene Base-Image, passt es an und startet die VM:
+
+- Automatischer VM-Index → eindeutiges `/30`-Subnetz und TAP-Interface (`tap0`, `tap1`, …)
+- Hostname, statische IP und DNS werden direkt ins Rootfs geschrieben
+- SSH-Public-Keys aus `~/.ssh/id_*.pub` bzw. `authorized_keys` werden für root **und** den aufrufenden Benutzer eingerichtet
+- SSH-Host-Keys werden vorab auf dem Host generiert (kein Entropy-Engpass beim ersten Boot)
+- systemd-networkd-Konfiguration für das TAP-Interface wird persistent gesetzt (überlebt Reboot)
+- VM startet im Hintergrund; Konsolenausgabe landet in `~/firecracker/vms/<name>/console.log`
+
+**Idempotent:** läuft eine VM mit diesem Namen bereits, gibt das Skript den SSH-Befehl aus und endet. Ist sie gestoppt, wird sie neu gestartet (TAP-Interface wird bei Bedarf neu angelegt).
+
+Nach ca. 3–5 Sekunden ist die VM per SSH erreichbar:
+
+```bash
+ssh <user>@<guest-ip>     # Benutzer und IP werden am Ende ausgegeben
+```
+
+### 3. VM entfernen
+
+```bash
+./removeserver.sh <name>
+```
+
+[removeserver.sh](removeserver.sh) stoppt den Firecracker-Prozess und räumt sauber auf:
+
+- Firecracker-Prozess beenden (SIGTERM → SIGKILL falls nötig)
+- Verwaiste Loop-Mounts lösen
+- systemd-networkd-Konfiguration für das TAP-Interface entfernen
+- iptables-nft- und nft-Regeln der VM entfernen (Fallback für manuell gesetzte Regeln)
+- TAP-Interface löschen
+- VM-Verzeichnis (`~/firecracker/vms/<name>/`) entfernen
+
+Das Skript funktioniert auch dann, wenn das VM-Verzeichnis bereits gelöscht wurde: TAP-Name und IPs werden aus `/etc/systemd/network/50-tap*.vm` wiederhergestellt.
+
+---
+
+## Netzwerk-Schema
+
+Jede VM bekommt ein eigenes `/30`-Subnetz im Bereich `172.16.0.0/16`.
+Der VM-Index `N` (0, 1, 2, …) bestimmt das Subnetz:
+
+| Index N | TAP-Interface | Host-IP (Gateway) | Gast-IP |
+|---|---|---|---|
+| 0 | `tap0` | `172.16.0.1` | `172.16.0.2` |
+| 1 | `tap1` | `172.16.0.5` | `172.16.0.6` |
+| 2 | `tap2` | `172.16.0.9` | `172.16.0.10` |
+| … | … | … | … |
+
+NAT ins Internet wird per `IPMasquerade=ipv4` in der systemd-networkd-Konfiguration gesetzt – keine manuellen iptables-Regeln notwendig. Maximal 16.384 gleichzeitige VMs möglich.
+
+---
+
+## VM-Verzeichnis
+
+Jede VM hat ein eigenes Verzeichnis `~/firecracker/vms/<name>/`:
+
+| Datei | Inhalt |
+|---|---|
+| `rootfs.ext4` | VM-eigene Kopie des Base-Images (CoW auf btrfs/xfs) |
+| `config.json` | Firecracker-Konfiguration (Kernel, Disk, Netzwerk, Entropy) |
+| `firecracker.pid` | PID des laufenden Firecracker-Prozesses |
+| `firecracker.socket` | Unix-Socket für die REST-API |
+| `console.log` | Serielle Konsolenausgabe der VM |
+| `firecracker.log` | Interne Firecracker-Logs (Level: Info) |
+| `index`, `guest_ip`, `host_ip`, `tap_dev` | Metadaten für Restart und Cleanup |
+| `vcpus`, `mem_mib`, `disk_gb`, `host_user` | Ressourcen-Konfiguration |
+
+---
+
+## REST-API
+
+Firecracker stellt nach dem Start eine HTTP-API über den Unix-Socket bereit:
+
+```bash
+SOCKET=~/firecracker/vms/<name>/firecracker.socket
+
+# VM-Status abfragen
 curl --unix-socket "$SOCKET" http://localhost/
 
-# VM pausieren
-curl --unix-socket "$SOCKET" -X PATCH \
-  http://localhost/vm \
-  -H "Content-Type: application/json" \
-  -d '{"state": "Paused"}'
+# VM pausieren / fortsetzen
+curl --unix-socket "$SOCKET" -X PATCH http://localhost/vm \
+  -H "Content-Type: application/json" -d '{"state": "Paused"}'
+curl --unix-socket "$SOCKET" -X PATCH http://localhost/vm \
+  -H "Content-Type: application/json" -d '{"state": "Resumed"}'
 
-# VM fortsetzen
-curl --unix-socket "$SOCKET" -X PATCH \
-  http://localhost/vm \
-  -H "Content-Type: application/json" \
-  -d '{"state": "Resumed"}'
-
-# VM sauber herunterfahren (sendet Ctrl+Alt+Del an den Gast)
-curl --unix-socket "$SOCKET" -X PUT \
-  http://localhost/actions \
-  -H "Content-Type: application/json" \
-  -d '{"action_type": "SendCtrlAltDel"}'
+# VM sauber herunterfahren
+curl --unix-socket "$SOCKET" -X PUT http://localhost/actions \
+  -H "Content-Type: application/json" -d '{"action_type": "SendCtrlAltDel"}'
 ```
 
 ---
 
-## 9. k3s in der VM installieren (optional)
-
-Nach dem Start der VM per SSH verbinden und k3s installieren:
+## k3s in der VM (optional)
 
 ```bash
-# Verbindung zur VM
-ssh root@172.16.0.2
-
-# k3s Single-Node-Cluster installieren
-# --write-kubeconfig-mode: kubeconfig für alle Benutzer lesbar
-curl -sfL https://get.k3s.io | sh -s - \
-  --write-kubeconfig-mode 644
-
-# Status prüfen
-systemctl status k3s
+ssh root@<guest-ip>
+curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
 kubectl get nodes
 ```
 
+Die Boot-Argumente in [addserver.sh](addserver.sh) aktivieren bereits `cgroup_enable=cpuset`, `cgroup_memory=1` und `cgroup_enable=memory`, sodass k3s ohne weitere Kernel-Konfiguration startet.
+
 ---
 
-## 10. Troubleshooting
+## Troubleshooting
 
 ### KVM-Zugriff fehlt
 
 ```bash
-# Gruppe prüfen
 groups $USER | grep kvm
-
-# Falls nicht vorhanden: Gruppe hinzufügen und neu anmelden
 sudo usermod -aG kvm $USER
 newgrp kvm
 ```
 
-### VM startet nicht / keine Konsolenausgabe
+### VM startet, aber kein SSH-Zugriff
 
 ```bash
-# Firecracker-Log prüfen
-cat /tmp/firecracker.log
+# Konsolenausgabe live beobachten
+tail -f ~/firecracker/vms/<name>/console.log
 
-# Kernel-Pfad und Rootfs-Pfad in config.json auf absolute Pfade prüfen
-grep "path" ~/firecracker/config.json
+# Firecracker-interne Logs
+cat ~/firecracker/vms/<name>/firecracker.log
 ```
+
+Häufige Ursachen: SSH-Host-Keys fehlen (sollten von [addserver.sh](addserver.sh) vorab generiert werden), Root-Login nicht erlaubt (`PermitRootLogin yes` in `/etc/ssh/sshd_config.d/99-firecracker.conf`), VM noch nicht vollständig gebootet.
 
 ### Keine Netzwerkverbindung aus der VM
 
 ```bash
-# Auf dem Host: tap0 und IP-Forwarding prüfen
-ip addr show tap0
+# Auf dem Host
+ip addr show tap<N>
 cat /proc/sys/net/ipv4/ip_forward   # muss "1" sein
-sudo iptables -t nat -L POSTROUTING -n -v
+sudo iptables-nft -t nat -L POSTROUTING -n -v
 
-# In der VM: Route und Gateway prüfen
+# In der VM
 ip route
-ping 172.16.0.1   # Gateway erreichbar?
+ping 172.16.0.1   # Gateway (Host-IP) erreichbar?
 ping 8.8.8.8      # Internet erreichbar?
-```
-
-### VM bootet, aber kein SSH-Zugriff
-
-```bash
-# Konsolenlog ansehen (falls im Hintergrund gestartet)
-tail -f /tmp/firecracker-console.log
-
-# SSH-Dienst in der VM prüfen (über serielle Konsole sichtbar)
-# Root-Login in /etc/ssh/sshd_config: PermitRootLogin yes
 ```
 
 ### Rootfs voll
 
 ```bash
-# Image-Datei vergrößern (VM muss gestoppt sein)
-truncate -s 10G ~/firecracker/ubuntu-rootfs.ext4
-
-# Dateisystem auf neue Größe anpassen
-e2fsck -f ~/firecracker/ubuntu-rootfs.ext4
-resize2fs ~/firecracker/ubuntu-rootfs.ext4
+# VM muss gestoppt sein
+truncate -s 10G ~/firecracker/vms/<name>/rootfs.ext4
+sudo e2fsck -f ~/firecracker/vms/<name>/rootfs.ext4
+sudo resize2fs ~/firecracker/vms/<name>/rootfs.ext4
 ```
 
-### base fs kaputt
+### Base-Image beschädigt
+
+```bash
+# Base-Image entfernen – firecracker.sh erstellt es neu
+rm ~/firecracker/base.ext4
+./firecracker.sh
+```
+
+### Verwaistes Loop-Device
+
 ```bash
 sudo losetup -j ~/firecracker/base.ext4 | cut -d: -f1 | xargs -r sudo losetup -d
-rm ~/firecracker/base.ext4
 ```
-
----
-
-## Übersicht der verwendeten Dateien
-
-| Datei | Zweck |
-|---|---|
-| `/usr/local/bin/firecracker` | Firecracker-Binary |
-| `~/firecracker/vmlinux` | Linux-Kernel für die MicroVM |
-| `~/firecracker/ubuntu-rootfs.ext4` | Root-Dateisystem der VM |
-| `~/firecracker/config.json` | Firecracker-Startkonfiguration |
-| `/tmp/firecracker.socket` | Unix-Socket für die REST-API |
-| `/tmp/firecracker.log` | Firecracker-Loglevel-Ausgaben |
-| `/tmp/firecracker-console.log` | Serielle Konsolenausgabe der VM |
