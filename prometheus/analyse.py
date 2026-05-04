@@ -4,6 +4,7 @@
 Prometheus Memory/Cardinality Analyzer
 Findet Metriken, Labels und Label-Wert-Kombinationen mit dem hoechsten
 Speicherverbrauch (Cardinality = Anzahl unique Time Series).
+Kompatibel mit Python 2.7 und Python 3.x (nur Standardbibliothek).
 """
 
 from __future__ import print_function
@@ -12,51 +13,64 @@ import base64
 import json
 import ssl
 import socket
-import urllib
-import urllib2
-import httplib
 
-PROMETHEUS_URL = "https://localhost:9090"
+# Python 2/3 Kompatibilitaet
+try:
+    import urllib2 as _urllib_request
+    import urllib as _urllib_parse
+    import httplib as _http_client
+except ImportError:
+    import urllib.request as _urllib_request
+    import urllib.parse as _urllib_parse
+    import http.client as _http_client
+
+PROMETHEUS_URL = "https://prometheus.gmk.lan:9090"
 BASIC_AUTH_USER = "admin"
 BASIC_AUTH_PASS = "secret"
 TOP_N = 50  # Wie viele Top-Eintraege anzeigen
 
-_Credentials = f"{BASIC_AUTH_USER}:{BASIC_AUTH_PASS}".encode("utf-8")
+_Credentials = "{0}:{1}".format(BASIC_AUTH_USER, BASIC_AUTH_PASS).encode("utf-8")
 _AUTH_HEADER = "Basic " + base64.b64encode(_Credentials).decode("ascii")
 
 
-# SSL-Verifikation deaktivieren (self-signed certs im LAN)
-# Kompatibel mit Python 2.7.3 (kein ssl.create_default_context verfuegbar)
-class _UnverifiedHTTPSConnection(httplib.HTTPSConnection):
+def _unverified_ssl_wrap(sock):
+    """SSL-Verifikation deaktivieren (self-signed certs im LAN).
+    Unterstuetzt Python 2.7.3+ (kein SSLContext) und Python 3.x."""
+    try:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx.wrap_socket(sock)
+    except AttributeError:
+        # Python 2.7 < 2.7.9: kein SSLContext verfuegbar
+        return ssl.wrap_socket(sock, cert_reqs=ssl.CERT_NONE)
+
+
+class _UnverifiedHTTPSConnection(_http_client.HTTPSConnection):
     def connect(self):
         sock = socket.create_connection((self.host, self.port), self.timeout)
         if self._tunnel_host:
             self.sock = sock
             self._tunnel()
-        self.sock = ssl.wrap_socket(
-            sock,
-            key_file=self.key_file,
-            cert_file=self.cert_file,
-            cert_reqs=ssl.CERT_NONE
-        )
+        self.sock = _unverified_ssl_wrap(sock)
 
 
-class _UnverifiedHTTPSHandler(urllib2.HTTPSHandler):
+class _UnverifiedHTTPSHandler(_urllib_request.HTTPSHandler):
     def https_open(self, req):
         return self.do_open(_UnverifiedHTTPSConnection, req)
 
 
-_opener = urllib2.build_opener(_UnverifiedHTTPSHandler())
+_opener = _urllib_request.build_opener(_UnverifiedHTTPSHandler())
 
 
 def query(path, params=None):
     url = "{0}{1}".format(PROMETHEUS_URL, path)
     if params:
-        url += "?" + urllib.urlencode(params)
-    req = urllib2.Request(url)
+        url += "?" + _urllib_parse.urlencode(params)
+    req = _urllib_request.Request(url)
     req.add_header("Authorization", _AUTH_HEADER)
     resp = _opener.open(req, timeout=60)
-    return json.loads(resp.read())
+    return json.loads(resp.read().decode("utf-8"))
 
 
 def query_instant(promql):
@@ -72,7 +86,7 @@ def get_label_names():
 
 
 def get_label_values(label):
-    data = query("/api/v1/label/{0}/values".format(urllib.quote(label)))
+    data = query("/api/v1/label/{0}/values".format(_urllib_parse.quote(label)))
     return data.get("data", [])
 
 
@@ -333,7 +347,7 @@ def main():
     # --- /healthz endpoint ---
     try:
         url = "{0}/-/healthy".format(PROMETHEUS_URL)
-        req = urllib2.Request(url)
+        req = _urllib_request.Request(url)
         req.add_header("Authorization", _AUTH_HEADER)
         resp = _opener.open(req, timeout=5)
         healthy = resp.getcode() == 200
@@ -345,7 +359,7 @@ def main():
     # --- /ready endpoint ---
     try:
         url = "{0}/-/ready".format(PROMETHEUS_URL)
-        req = urllib2.Request(url)
+        req = _urllib_request.Request(url)
         req.add_header("Authorization", _AUTH_HEADER)
         resp = _opener.open(req, timeout=5)
         ready = resp.getcode() == 200
