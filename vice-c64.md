@@ -9,13 +9,9 @@ libreadline-dev libgtk-3-dev libvte-dev libasound2-dev \
 libpulse-dev libxaw7-dev libxmu-dev libxpm-dev libxext-dev \
 libcurl4-openssl-dev libpng-dev libjpeg-dev zlib1g-dev \
 libglew-dev libmpg123-dev libvorbis-dev libflac-dev \
-libavformat-dev libavcodec-dev libswscale-dev \
-libfreetype6-dev libtiff-dev libgif-dev \
-flex bison dos2unix xa65 libevdev-dev \
 libavformat-dev libavcodec-dev libswscale-dev libavutil-dev \
-libmpg123-dev libvorbis-dev libflac-dev \
-libgtk-3-dev libglew-dev libpulse-dev libasound2-dev \
-libxaw7-dev libxmu-dev libxpm-dev libxext-dev
+libfreetype6-dev libtiff-dev libgif-dev \
+flex bison dos2unix xa65 libevdev-dev
 ```
 
 ## Download sources
@@ -27,13 +23,21 @@ cd vice-3.10
 
 ## Configure vice
 ```bash
-./configure
+./configure --with-gif
 make -j$(nproc)
 sudo make install
 ```
 
-## files
-```
+## Verzeichnisse anlegen
+```bash
 mkdir -p ~/.config/vice/C64
+mkdir -p ~/.local/share/vice/C64
+```
+
+ROMs werden durch `sudo make install` nach `/usr/local/share/vice/C64/` installiert.
+
+## Emulator starten
+```bash
+x64sc
 ```
 
