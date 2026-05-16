@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          enable-cache: true # Beschleunigt die CI bei jedem weiteren Run enorm
+
+      - name: Install dependencies
+        # --frozen stellt sicher, dass exakt die Lockfile-Versionen genutzt werden
+        run: uv sync --frozen
+
+      - name: Lint & Syntax Check
+        # Prüft das gesamte Projekt (inkl. Submodule) in Millisekunden auf Fehler
+        run: uv run ruff check .
+
+      - name: Type Check (Optional aber empfohlen)
+        # Wichtig für MCP, um sicherzustellen, dass Tools die richtigen Schemas liefern
+        run: uv run pyright .
