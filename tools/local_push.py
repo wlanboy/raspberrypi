@@ -82,13 +82,15 @@ def push_repo(local_path, repo_name):
         return False
 
     # Tags auch pushen
-    subprocess.run(
+    tag_result = subprocess.run(
         ["git", "push", remote_url, "--tags"],
         cwd=local_path,
         capture_output=True,
         text=True,
         env=env,
     )
+    if tag_result.returncode != 0:
+        print(f"  ⚠️  Tag-Push fehlgeschlagen:\n{tag_result.stderr.strip()}")
     return True
 
 # -----------------------------
