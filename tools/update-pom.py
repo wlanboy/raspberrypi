@@ -5,6 +5,8 @@ prüft via Maven Central API, baut mit `mvn package`
 und gibt eine fertige Commit-Message aus.
 """
 
+from __future__ import annotations
+
 import argparse
 import re
 import shutil
@@ -73,7 +75,7 @@ def tag(local: str) -> str:
     return f"{{{NS}}}{local}"
 
 
-def parse_pom(path: Path) -> ET.ElementTree:
+def parse_pom(path: Path) -> ET.ElementTree[ET.Element]:
     parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True))
     tree = ET.parse(path, parser=parser)
     return tree
@@ -83,7 +85,7 @@ def parse_pom(path: Path) -> ET.ElementTree:
 # Versionen extrahieren und patchen
 # ---------------------------------------------------------------------------
 
-def collect_and_update(tree: ET.ElementTree) -> list[dict]:
+def collect_and_update(tree: ET.ElementTree[ET.Element]) -> list[dict]:
     """
     Geht durch parent, dependencies und plugins, fragt die neueste Version ab
     und patcht das Tree-Objekt in-place.
@@ -107,7 +109,7 @@ def collect_and_update(tree: ET.ElementTree) -> list[dict]:
         a = dep.findtext(tag("artifactId"))
         v_el = dep.find(tag("version"))
         # Nur Dependencies mit expliziter Version (nicht managed)
-        if g and a and v_el is not None and not v_el.text.startswith("${"):
+        if g and a and v_el is not None and v_el.text is not None and not v_el.text.startswith("${"):
             updates += _check_and_patch(g, a, v_el, "dependency")
 
     # --- Build-Plugins ---
@@ -115,7 +117,7 @@ def collect_and_update(tree: ET.ElementTree) -> list[dict]:
         g = plugin.findtext(tag("groupId")) or "org.apache.maven.plugins"
         a = plugin.findtext(tag("artifactId"))
         v_el = plugin.find(tag("version"))
-        if a and v_el is not None and not v_el.text.startswith("${"):
+        if a and v_el is not None and v_el.text is not None and not v_el.text.startswith("${"):
             updates += _check_and_patch(g, a, v_el, "plugin")
 
     return updates
@@ -159,7 +161,7 @@ def _is_downgrade(old: str, new: str) -> bool:
 # pom.xml schreiben (originale Formatierung so weit möglich erhalten)
 # ---------------------------------------------------------------------------
 
-def write_pom(tree: ET.ElementTree, path: Path) -> None:
+def write_pom(tree: ET.ElementTree[ET.Element], path: Path) -> None:
     # ElementTree ergänzt keine XML-Deklaration automatisch
     ET.indent(tree, space="\t")
     tree.write(path, xml_declaration=True, encoding="UTF-8")
