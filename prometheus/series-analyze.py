@@ -6,14 +6,17 @@ Speicherverbrauch (Cardinality = Anzahl unique Time Series).
 """
 
 import base64
+import io
 import json
 import sys
 import urllib.request
 import urllib.parse
 import ssl
 
-sys.stdout.reconfigure(encoding="utf-8")
-sys.stderr.reconfigure(encoding="utf-8")
+if isinstance(sys.stdout, io.TextIOWrapper):
+    sys.stdout.reconfigure(encoding="utf-8")
+if isinstance(sys.stderr, io.TextIOWrapper):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 PROMETHEUS_URL = "https://localhost:9090"
 BASIC_AUTH_USER = "admin"
