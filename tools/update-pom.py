@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 update-pom.py – Aktualisiert pom.xml auf die neuesten Releases,
-prüft via Maven Central API, baut mit `mvn package -DskipTests`
+prüft via Maven Central API, baut mit `mvn package`
 und gibt eine fertige Commit-Message aus.
 """
 
@@ -176,7 +176,7 @@ def write_pom(tree: ET.ElementTree, path: Path) -> None:
 def run_maven() -> bool:
     print("\nStarte Maven-Build: mvn package -DskipTests ...")
     result = subprocess.run(
-        ["mvn", "package", "-DskipTests"],
+        ["mvn", "package"],
         cwd=POM.parent,
         capture_output=False,
     )
@@ -196,11 +196,24 @@ def build_commit_message(updates: list[dict]) -> str:
         coord = f"{u['group']}:{u['artifact']}"
         lines.append(f"- {coord}: {u['old']} → {u['new']}")
 
-    lines += [
-        "",
-        "Verified with: mvn package -DskipTests",
-    ]
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Git commit
+# ---------------------------------------------------------------------------
+
+def git_commit(message: str) -> None:
+    cwd = POM.parent
+    add = subprocess.run(["git", "add", "pom.xml"], cwd=cwd)
+    if add.returncode != 0:
+        print("⚠️  git add pom.xml fehlgeschlagen – kein Commit erstellt.")
+        return
+    commit = subprocess.run(["git", "commit", "-m", message], cwd=cwd)
+    if commit.returncode == 0:
+        print("✔ Commit erstellt.")
+    else:
+        print("⚠️  git commit fehlgeschlagen.")
 
 
 # ---------------------------------------------------------------------------
@@ -243,11 +256,13 @@ def main() -> None:
     if success:
         print("\nBuild erfolgreich.\n")
         backup.unlink(missing_ok=True)
+        msg = build_commit_message(updates)
         print("=" * 60)
         print("COMMIT MESSAGE")
         print("=" * 60)
-        print(build_commit_message(updates))
+        print(msg)
         print("=" * 60)
+        git_commit(msg)
     else:
         print("\nBuild FEHLGESCHLAGEN – pom.xml wird zurückgesetzt.")
         shutil.copy2(backup, POM)
