@@ -131,7 +131,7 @@ def main():
             continue
 
         if push_repo(local_path, name):
-            print(f"  ✔ Gepusht")
+            print("  ✔ Gepusht")
             pushed += 1
         else:
             errors += 1

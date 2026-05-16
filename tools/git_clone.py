@@ -65,11 +65,11 @@ def main():
         status = clone_repo(repo, target)
         stats[status] += 1
 
-    print(f"\n📊 Zusammenfassung:")
+    print("\n📊 Zusammenfassung:")
     print(f"   Geklont:       {stats['cloned']}")
     print(f"   Übersprungen:  {stats['skipped']}")
     print(f"   Fehler:        {stats['error']}")
-    print(f"\n📁 Zielordner:")
+    print("\n📁 Zielordner:")
     print(f"   Public:  {PUBLIC_DIR}")
     print(f"   Private: {PRIVATE_DIR}")
 

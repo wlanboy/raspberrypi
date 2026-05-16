@@ -108,7 +108,7 @@ def main():
             print(f"❌ Neu erstellen fehlgeschlagen: {text}")
             failed += 1
 
-    print(f"\n📊 Zusammenfassung:")
+    print("\n📊 Zusammenfassung:")
     print(f"   Aktualisiert:   {updated}")
     print(f"   Fehlgeschlagen: {failed}")
 

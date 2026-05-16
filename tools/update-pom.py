@@ -128,7 +128,7 @@ def _check_and_patch(group_id, artifact_id, version_el, kind) -> list[dict]:
     print(f"  Prüfe {group_id}:{artifact_id}  ({old_version})")
     new_version = latest_release(group_id, artifact_id)
     if not new_version:
-        print(f"    -> kein Ergebnis, übersprungen")
+        print("    -> kein Ergebnis, übersprungen")
         return []
     if new_version == old_version:
         print(f"    -> bereits aktuell ({old_version})")

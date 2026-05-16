@@ -63,7 +63,8 @@ def get_github_repos():
         if status != 200:
             raise Exception(f"GitHub Fehler: {status} {text}")
         data = json.loads(text)
-        if not data: break
+        if not data:
+            break
         repos.extend(data)
         page += 1
     return repos
@@ -160,7 +161,7 @@ def main():
         create_gitea_mirror(repo["clone_url"], name)
         created += 1
 
-    print(f"\n📊 Zusammenfassung:")
+    print("\n📊 Zusammenfassung:")
     print(f"   GitHub Repos gesamt:       {total}")
     print(f"   Ohne '{TOPIC_FILTER}'-Topic: {filtered}")
     print(f"   Bereits gespiegelt:        {skipped}")

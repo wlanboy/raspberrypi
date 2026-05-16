@@ -82,7 +82,7 @@ def failed_repos_from_notices():
     return repos
 
 
-print(f"--- Lese fehlgeschlagene Syncs aus Admin-Notices ---")
+print("--- Lese fehlgeschlagene Syncs aus Admin-Notices ---")
 all_failed = failed_repos_from_notices()
 
 # Nur Repos der konfigurierten Organisation berücksichtigen

@@ -110,7 +110,7 @@ def main():
         # Gesamtübersicht
         head = stats.get("headStats", {})
         if head:
-            print(f"\n  Head Block:")
+            print("\n  Head Block:")
             for k, v in head.items():
                 print(f"    {k}: {v:,}")
 
