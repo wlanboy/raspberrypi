@@ -18,6 +18,7 @@ declare -A ALIASES=(
     ["giteaupdate"]="python3 ~/git/raspberrypi/tools/gitea-update-github-token.py"
     ["uu"]="uv lock --upgrade && uv pip compile pyproject.toml -o requirements.txt"
     ["gz"]="python3 ~/git/raspberrypi/tools/git_zizmor.py ~/git"
+    ["gha"]="python3 ~/git/raspberrypi/tools/git_github_action_update.py ~/git"
 )
 
 FORCE=0
