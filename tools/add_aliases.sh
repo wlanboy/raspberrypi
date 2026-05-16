@@ -19,6 +19,7 @@ declare -A ALIASES=(
     ["uu"]="uv lock --upgrade && uv pip compile pyproject.toml -o requirements.txt"
     ["gz"]="python3 ~/git/raspberrypi/tools/git_zizmor.py ~/git"
     ["gha"]="python3 ~/git/raspberrypi/tools/git_github_action_update.py ~/git"
+    ["ghas"]="python3 ~/git/raspberrypi/tools/git_github_action_status.py ~/git"
 )
 
 FORCE=0
