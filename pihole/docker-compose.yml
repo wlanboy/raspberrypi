@@ -1,0 +1,20 @@
+services:
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    ports:
+      - "8080:80"
+      - "8443:443"
+      - "${SERVER_IP:?}:53:53/tcp"
+      - "${SERVER_IP:?}:53:53/udp"
+      - "${SERVER_IP:?}:67:67/udp"
+    environment:
+      TZ: Europe/Berlin
+      ServerIP: "${SERVER_IP}"
+      WEBPASSWORD: "${WEBPASSWORD:-pihole}"
+      DNS1: "192.168.178.1"
+      DNS2: "8.8.8.8"
+    volumes:
+      - /pihole/etc:/etc/pihole/
+      - /pihole/dns:/etc/dnsmasq.d/
+    restart: unless-stopped
