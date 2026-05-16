@@ -16,9 +16,9 @@ import socket
 
 # Python 2/3 Kompatibilitaet
 try:
-    import urllib2 as _urllib_request
-    import urllib as _urllib_parse
-    import httplib as _http_client
+    import urllib2 as _urllib_request  # type: ignore[import-not-found]
+    import urllib as _urllib_parse  # type: ignore[import-not-found]
+    import httplib as _http_client  # type: ignore[import-not-found]
 except ImportError:
     import urllib.request as _urllib_request
     import urllib.parse as _urllib_parse
@@ -46,7 +46,7 @@ def _unverified_ssl_wrap(sock):
         return ssl.wrap_socket(sock, cert_reqs=ssl.CERT_NONE)
 
 
-class _UnverifiedHTTPSConnection(_http_client.HTTPSConnection):
+class _UnverifiedHTTPSConnection(_http_client.HTTPSConnection):  # type: ignore[misc]
     def connect(self):
         sock = socket.create_connection((self.host, self.port), self.timeout)
         if self._tunnel_host:
@@ -55,7 +55,7 @@ class _UnverifiedHTTPSConnection(_http_client.HTTPSConnection):
         self.sock = _unverified_ssl_wrap(sock)
 
 
-class _UnverifiedHTTPSHandler(_urllib_request.HTTPSHandler):
+class _UnverifiedHTTPSHandler(_urllib_request.HTTPSHandler):  # type: ignore[misc]
     def https_open(self, req):
         return self.do_open(_UnverifiedHTTPSConnection, req)
 
