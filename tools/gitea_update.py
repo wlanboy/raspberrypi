@@ -29,11 +29,18 @@ API_HEADERS = {
 
 
 def api(method, path, body=None):
+    from urllib.error import HTTPError, URLError
     url = f"{GITEA_URL}/api/v1{path}"
     data = json.dumps(body).encode() if body is not None else None
     req = Request(url, data=data, headers=API_HEADERS, method=method)
-    with urlopen(req, context=ctx) as resp:
-        return resp.status, resp.read().decode()
+    try:
+        with urlopen(req, context=ctx) as resp:
+            return resp.status, resp.read().decode()
+    except HTTPError as e:
+        return e.code, e.read().decode()
+    except URLError as e:
+        print(f"  [FEHLER] Verbindung zu {GITEA_URL} fehlgeschlagen: {e.reason}")
+        sys.exit(1)
 
 
 def failed_repos_from_notices():
@@ -45,12 +52,20 @@ def failed_repos_from_notices():
     tag_pattern = re.compile(r"<[^>]+>")
 
     while True:
+        from urllib.error import HTTPError, URLError
         req = Request(
             f"{GITEA_URL}/-/admin/notices?page={page}",
             headers={"Authorization": f"token {GITEA_TOKEN}"},
         )
-        with urlopen(req, context=ctx) as resp:
-            html = resp.read().decode()
+        try:
+            with urlopen(req, context=ctx) as resp:
+                html = resp.read().decode()
+        except HTTPError as e:
+            print(f"  [FEHLER] Admin-Notices nicht abrufbar (HTTP {e.code}).")
+            sys.exit(1)
+        except URLError as e:
+            print(f"  [FEHLER] Verbindung zu {GITEA_URL} fehlgeschlagen: {e.reason}")
+            sys.exit(1)
 
         found_on_page = 0
         for cell in td_pattern.findall(html):
@@ -91,8 +106,11 @@ for repo in failed_repos:
 
     if status == 200 and "remote_address" in body:
         print("  [OK] Credentials aktualisiert.")
-        api("POST", f"/repos/{GITEA_ORG}/{repo}/mirror-sync")
-        print("  [OK] Sync-Vorgang gestartet.")
+        sync_status, _ = api("POST", f"/repos/{GITEA_ORG}/{repo}/mirror-sync")
+        if sync_status in (200, 204):
+            print("  [OK] Sync-Vorgang gestartet.")
+        else:
+            print(f"  [WARNUNG] Sync-Start fehlgeschlagen (HTTP {sync_status}).")
     else:
         print(f"  [FEHLER] Konnte Credentials für {repo} nicht aktualisieren.")
         print(f"  Antwort: {body}")
