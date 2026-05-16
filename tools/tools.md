@@ -1,7 +1,8 @@
 # Git & Maven Toolsammlung
 
 Diese Sammlung enthält Python- und Shell-Scripte für den täglichen Umgang mit mehreren
-Git-Repositories sowie für die automatische Pflege von Maven-Abhängigkeiten.
+Git-Repositories sowie für die automatische Pflege von Maven- und Python-Abhängigkeiten,
+Docker-Images und GitHub Actions.
 
 ---
 
@@ -15,7 +16,20 @@ Git-Repositories sowie für die automatische Pflege von Maven-Abhängigkeiten.
 6. [mirror_git_repos.py – GitHub → Gitea spiegeln](#6-mirror_git_repospy--github--gitea-spiegeln)
 7. [gh-no-mirror.py – Repos ohne Mirror-Tag finden](#7-gh-no-mirrorpy--repos-ohne-mirror-tag-finden)
 8. [update-pom.py – Maven-Abhängigkeiten aktualisieren](#8-update-pompy--maven-abhängigkeiten-aktualisieren)
-9. [find_big_files_in_git_history.sh – Große Dateien in Git-History finden](#9-find_big_files_in_git_historysh--große-dateien-in-git-history-finden)
+9. [update-pom-all.py – Maven-Abhängigkeiten in allen Projekten](#9-update-pom-allpy--maven-abhängigkeiten-in-allen-projekten)
+10. [update-uv.py – Python-Abhängigkeiten aktualisieren](#10-update-uvpy--python-abhängigkeiten-aktualisieren)
+11. [update-uv-all.py – Python-Abhängigkeiten in allen Projekten](#11-update-uv-allpy--python-abhängigkeiten-in-allen-projekten)
+12. [git_github_action_status.py – GitHub Actions Status](#12-git_github_action_statuspy--github-actions-status)
+13. [git_github_action_update.py – GitHub Actions aktualisieren](#13-git_github_action_updatepy--github-actions-aktualisieren)
+14. [docker-image-status.py – Docker-Image-Status prüfen](#14-docker-image-statuspy--docker-image-status-prüfen)
+15. [docker-image-update.py – Docker-Images aktualisieren](#15-docker-image-updatepy--docker-images-aktualisieren)
+16. [update-stack.py – Docker Compose Stacks verwalten](#16-update-stackpy--docker-compose-stacks-verwalten)
+17. [git_zizmor.py – GitHub Actions Security-Audit](#17-git_zizmory--github-actions-security-audit)
+18. [local_push.py – Lokale Repos nach Gitea pushen](#18-local_pushpy--lokale-repos-nach-gitea-pushen)
+19. [gitea-update-github-token.py – GitHub-Token in Mirrors aktualisieren](#19-gitea-update-github-tokenpyGitHub-token-in-mirrors-aktualisieren)
+20. [git_clone.py – Alle GitHub-Repos klonen](#20-git_clonepy--alle-github-repos-klonen)
+21. [check_and_add_license.sh – Lizenz zu Repos hinzufügen](#21-check_and_add_licensesh--lizenz-zu-repos-hinzufügen)
+22. [find_big_files_in_git_history.sh – Große Dateien in Git-History finden](#22-find_big_files_in_git_historysh--große-dateien-in-git-history-finden)
 
 ---
 
@@ -41,11 +55,22 @@ Nach der Einrichtung stehen folgende Kurzbefehle zur Verfügung:
 | Alias | Befehl | Bedeutung |
 | --- | --- | --- |
 | `gu` | `git_pull_all.py ~/git` | Alle Repos **u**pdaten (pull) |
-| `gs` | `git_status_all.py ~/git` | **S**tatus aller Repos anzeigen |
-| `gl` | `scan_git_repos.py ~/git` | Repos **l**isten (Branch + Remote) |
+| `gitstatus` | `git_status_all.py ~/git` | **S**tatus aller Repos anzeigen |
+| `gitscan` | `scan_git_repos.py ~/git` | Repos **l**isten (Branch + Remote) |
 | `gm` | `mirror_git_repos.py ~/git` | GitHub → Gitea **m**irroren |
-| `gnm` | `gh-no-mirror.py` | Repos ohne Mirror-Tag anzeigen |
+| `gitnom` | `gh-no-mirror.py` | Repos ohne Mirror-Tag anzeigen |
 | `up` | `update-pom.py` | Maven-Abhängigkeiten **up**daten |
+| `lp` | `local_push.py` | Lokale Repos nach Gitea **p**ushen |
+| `hh` | `python3 -m http.server` | Einfachen **H**TTP-Server starten |
+| `dockerstatus` | `docker-image-status.py` | Docker-Image-Status prüfen |
+| `dockerupdate` | `docker-image-update.py` | Docker-Images aktualisieren |
+| `updatestack` | `update-stack.py` | Docker Compose Stacks updaten |
+| `aa` | `alias` | Alle aktiven **A**liases anzeigen |
+| `giteaupdate` | `gitea-update-github-token.py` | GitHub-Token in Gitea-Mirrors erneuern |
+| `uu` | `uv lock --upgrade && uv pip compile ...` | Python-Abhängigkeiten updaten |
+| `gz` | `git_zizmor.py ~/git` | GitHub Actions Security-Audit (zizmor) |
+| `gha` | `git_github_action_update.py ~/git` | **G**itHub **A**ctions aktualisieren |
+| `ghas` | `git_github_action_status.py ~/git` | **G**itHub **A**ctions **S**tatus anzeigen |
 
 ---
 
@@ -60,6 +85,19 @@ Nach der Einrichtung stehen folgende Kurzbefehle zur Verfügung:
 | [`mirror_git_repos.py`](mirror_git_repos.py) | Python | GitHub-Repos mit Topic `mirror` nach Gitea spiegeln |
 | [`gh-no-mirror.py`](gh-no-mirror.py) | Python | GitHub-Repos ohne `mirror`-Topic finden |
 | [`update-pom.py`](update-pom.py) | Python | Maven `pom.xml` auf neueste Versionen aktualisieren |
+| [`update-pom-all.py`](update-pom-all.py) | Python | `update-pom.py` für alle Java-Projekte in einem Verzeichnis |
+| [`update-uv.py`](update-uv.py) | Python | `uv.lock` eines Python-Projekts aktualisieren und validieren |
+| [`update-uv-all.py`](update-uv-all.py) | Python | `update-uv.py` für alle Python-Projekte in einem Verzeichnis |
+| [`git_github_action_status.py`](git_github_action_status.py) | Python | Letzten GitHub Actions Run je Pipeline für alle Repos anzeigen |
+| [`git_github_action_update.py`](git_github_action_update.py) | Python | Veraltete GitHub Actions auf neue Major-Versionen aktualisieren |
+| [`docker-image-status.py`](docker-image-status.py) | Python | Laufende Container auf neuere Image-Versionen prüfen |
+| [`docker-image-update.py`](docker-image-update.py) | Python | Veraltete Docker-Images pullen (liest `docker-image.status`) |
+| [`update-stack.py`](update-stack.py) | Python | Docker Compose Stacks interaktiv auswählen, pullen und neu starten |
+| [`git_zizmor.py`](git_zizmor.py) | Python | GitHub Actions Workflows mit zizmor auf Sicherheitsprobleme prüfen |
+| [`local_push.py`](local_push.py) | Python | Lokale Git-Repos in Gitea-Organisation pushen |
+| [`gitea-update-github-token.py`](gitea-update-github-token.py) | Python | GitHub-Token in allen Gitea-Mirror-Repos aktualisieren |
+| [`git_clone.py`](git_clone.py) | Python | Alle eigenen GitHub-Repos nach `~/github/public` und `~/github/private` klonen |
+| [`check_and_add_license.sh`](check_and_add_license.sh) | Bash | Apache-2.0-Lizenz zu öffentlichen Repos ohne Lizenz hinzufügen |
 | [`find_big_files_in_git_history.sh`](find_big_files_in_git_history.sh) | Bash | Dateien > 50 KB in der Git-History aufspüren |
 
 ---
@@ -101,7 +139,7 @@ Repos ohne Änderungen werden als "sauber" markiert.
 ```bash
 python3 git_status_all.py [VERZEICHNIS]
 # oder per Alias:
-gs
+gitstatus
 ```
 
 ```text
@@ -124,7 +162,7 @@ konfigurierten Remote-URLs auf. Ohne Argument wird das Home-Verzeichnis durchsuc
 ```bash
 python3 scan_git_repos.py [VERZEICHNIS]
 # oder per Alias:
-gl
+gitscan
 ```
 
 ```text
@@ -211,7 +249,7 @@ Voraussetzung: GitHub CLI installiert und eingeloggt mit `gh auth login`.
 ```bash
 python3 gh-no-mirror.py
 # oder per Alias:
-gnm
+gitnom
 ```
 
 ```text
@@ -306,7 +344,481 @@ diese müssen manuell in `<properties>` gepflegt werden.
 
 ---
 
-## 9. find_big_files_in_git_history.sh – Große Dateien in Git-History finden
+## 9. update-pom-all.py – Maven-Abhängigkeiten in allen Projekten
+
+Durchsucht ein Verzeichnis rekursiv nach `pom.xml`-Dateien und ruft
+[`update-pom.py`](#8-update-pompy--maven-abhängigkeiten-aktualisieren) für jedes
+gefundene Java-Projekt auf. Am Ende wird eine Zusammenfassung ausgegeben und
+optional ein `git push` für alle Projekte mit nicht gepushten Commits angeboten.
+
+```bash
+python3 update-pom-all.py [VERZEICHNIS]
+```
+
+Ohne Argument wird das aktuelle Verzeichnis verwendet.
+
+```text
+🔍 3 Java-Projekt(e) gefunden in /home/samuel/git
+
+==============================
+📦 /home/samuel/git/my-app
+==============================
+...
+
+📊 Zusammenfassung (3 Projekt(e))
+
+✔ Erfolgreich (2):
+   /home/samuel/git/my-app
+   /home/samuel/git/other-app
+
+❌ Fehlgeschlagen (1):
+   /home/samuel/git/broken-app
+
+🚀 git push ausstehend (2 Projekt(e)):
+   /home/samuel/git/my-app
+   /home/samuel/git/other-app
+
+❓ git push für alle ausstehenden Projekte ausführen? [j/N]:
+```
+
+---
+
+## 10. update-uv.py – Python-Abhängigkeiten aktualisieren
+
+Aktualisiert `uv.lock` eines Python-Projekts auf die neuesten verfügbaren Versionen
+(`uv lock --upgrade`), prüft anschließend mit `uv sync` und führt optionale Checks
+mit `ruff` und `pyright` aus (falls im Projekt vorhanden). Bei Fehlschlag wird das
+Original-`uv.lock` automatisch wiederhergestellt.
+
+Voraussetzungen: `uv` im PATH, `pyproject.toml` und `uv.lock` im Projektverzeichnis.
+
+```bash
+python3 update-uv.py [VERZEICHNIS]
+```
+
+Ohne Argument wird das aktuelle Verzeichnis verwendet.
+
+### Ausführungsschritte
+
+1. Backup von `uv.lock` erstellen (`uv.lock.bak`)
+2. `uv lock --upgrade` ausführen
+3. Versionsunterschiede ermitteln
+4. `uv sync` zur Validierung ausführen
+5. `ruff check` und `pyright` ausführen (wenn vorhanden)
+6. Bei **Erfolg**: Backup löschen, Git-Commit erstellen, Commit-Message ausgeben
+7. Bei **Fehler**: `uv.lock.bak` wiederherstellen
+
+```text
+Backup erstellt: uv.lock.bak
+
+Starte uv lock --upgrade ...
+
+Prüfe mit uv sync ...
+Sync erfolgreich.
+
+============================================================
+COMMIT MESSAGE
+============================================================
+uv updater: bump dependencies to latest releases
+
+- requests: 2.31.0 → 2.32.3
+- ruff: 0.4.0 → 0.5.7
+============================================================
+```
+
+---
+
+## 11. update-uv-all.py – Python-Abhängigkeiten in allen Projekten
+
+Durchsucht ein Verzeichnis rekursiv nach Projekten, die sowohl eine `pyproject.toml`
+als auch eine `uv.lock` besitzen, und ruft
+[`update-uv.py`](#10-update-uvpy--python-abhängigkeiten-aktualisieren) für jedes auf.
+Am Ende wird eine Zusammenfassung ausgegeben und optional ein `git push` angeboten.
+
+```bash
+python3 update-uv-all.py [VERZEICHNIS]
+```
+
+```text
+🔍 2 Python-Projekt(e) gefunden in /home/samuel/git
+
+==================================================
+🐍 /home/samuel/git/my-tool
+==================================================
+...
+
+📊 Zusammenfassung (2 Projekt(e))
+
+✔ Erfolgreich (2):
+   /home/samuel/git/my-tool
+   /home/samuel/git/other-tool
+
+🚀 git push ausstehend (1 Projekt(e)):
+   /home/samuel/git/my-tool
+
+❓ git push für alle ausstehenden Projekte ausführen? [j/N]:
+```
+
+---
+
+## 12. git_github_action_status.py – GitHub Actions Status
+
+Zeigt für alle Git-Repositories im angegebenen Verzeichnis den Status des letzten
+GitHub Actions Runs je Workflow. Verwendet die `gh` CLI für die API-Abfragen.
+
+Voraussetzung: GitHub CLI installiert und eingeloggt mit `gh auth login`.
+
+```bash
+python3 git_github_action_status.py [VERZEICHNIS]
+# oder per Alias:
+ghas
+```
+
+```text
+🔍 3 Repository/ies gefunden
+
+📂 my-app
+  Status          Workflow                                  Branch               Event               Alter
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✅ success      Build and Deploy                          main                 push                2d ago
+  ❌ failure      Code Quality                              feature/xyz          pull_request        5h ago
+
+📂 other-repo
+  — Keine Runs gefunden
+```
+
+### Status-Symbole
+
+| Symbol | Bedeutung |
+| --- | --- |
+| ✅ | Erfolgreich (success) |
+| ❌ | Fehlgeschlagen (failure) |
+| ⚠️ | Abgebrochen (cancelled) |
+| 🔄 | Läuft gerade (in_progress) |
+| ⏳ | Wartend (queued/waiting) |
+
+Mit `--no-color` wird die farbige Ausgabe deaktiviert.
+
+---
+
+## 13. git_github_action_update.py – GitHub Actions aktualisieren
+
+Durchsucht alle `.github/workflows`-Verzeichnisse im angegebenen Basisverzeichnis
+nach veralteten GitHub Actions (nur **Major-Version-Sprünge**) und aktualisiert die
+Workflow-Dateien interaktiv. Optional werden die Änderungen committed und gepusht.
+
+Voraussetzung: GitHub CLI installiert (für Token-Authentifizierung).
+
+```bash
+python3 git_github_action_update.py [VERZEICHNIS]
+# oder per Alias:
+gha
+```
+
+```text
+🔑 GitHub Token gefunden – Online-Checks aktiviert.
+
+🔍 Suche nach Workflow-Dateien ...
+✅ 5 Workflow-Datei(en), 8 eindeutige Action(s).
+
+🌐 Prüfe aktuelle Versionen via GitHub API ...
+   actions/checkout: v4
+   actions/setup-java: v4
+   ...
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  Neue Major-Versionen verfügbar:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [1] actions/upload-artifact
+       v3 → v4
+       my-app/.github/workflows/build.yml
+
+Welche Actions aktualisieren? (Nummern kommasepariert, "a" = alle, "n" = keine): a
+
+✅ my-app/.github/workflows/build.yml (actions/upload-artifact: v3 → v4)
+
+Sollen die Änderungen committed und gepusht werden? [j/N]:
+```
+
+> **Hinweis:** Es werden ausschließlich Major-Versionswechsel angezeigt (z. B. v3 → v4).
+> Patch- und Minor-Updates werden bewusst ignoriert.
+
+---
+
+## 14. docker-image-status.py – Docker-Image-Status prüfen
+
+Vergleicht für alle laufenden Docker-Container den lokalen Image-Digest mit dem
+aktuellen Remote-Digest auf Docker Hub, GHCR oder einer selbst gehosteten Registry.
+Das Ergebnis wird in `docker-image.status` (JSON) gespeichert und dient als Eingabe
+für [`docker-image-update.py`](#15-docker-image-updatepy--docker-images-aktualisieren).
+
+```bash
+python3 docker-image-status.py [--json]
+# oder per Alias:
+dockerstatus
+```
+
+```text
+CONTAINER        IMAGE                STATUS
+-----------------------------------------------
+nginx            nginx:latest         UP TO DATE
+my-app           myrepo/app:v2.1      UPDATE AVAILABLE
+custom-service   ghcr.io/org/svc:1    UNKNOWN  (digest not available)
+
+Status written to: /path/to/tools/docker-image.status
+```
+
+Mit `--json` wird die Ausgabe als JSON statt als Tabelle ausgegeben.
+
+### Unterstützte Registries
+
+| Registry | Authentifizierung |
+| --- | --- |
+| Docker Hub (`docker.io`) | Anonym via Token-Challenge |
+| GitHub Container Registry (`ghcr.io`) | Anonym via Bearer-Challenge |
+| Selbst gehostete OCI-Registry | Anonym, falls ohne Auth |
+
+---
+
+## 15. docker-image-update.py – Docker-Images aktualisieren
+
+Liest die von [`docker-image-status.py`](#14-docker-image-statuspy--docker-image-status-prüfen)
+erstellte Statusdatei und führt für alle veralteten Container `docker pull` aus.
+
+```bash
+python3 docker-image-update.py [--dry-run]
+# oder per Alias:
+dockerupdate
+```
+
+Die Statusdatei darf nicht älter als 1 Stunde sein; andernfalls wird eine Warnung ausgegeben.
+
+```text
+Status from: 2025-05-16T10:00:00+00:00
+
+Containers up to date : 2
+Containers to update  : 1
+Containers unknown    : 1
+
+Updating my-app (myrepo/app:v2.1)
+  Pulling image ...
+  $ docker pull myrepo/app:v2.1
+  Done
+```
+
+Mit `--dry-run` werden die Befehle nur angezeigt, aber nicht ausgeführt.
+
+---
+
+## 16. update-stack.py – Docker Compose Stacks verwalten
+
+Interaktives TUI-Tool zum Verwalten von Docker Compose Stacks unter `/mnt/sata`.
+Zeigt alle verfügbaren `docker-compose*.yml`-Dateien in einer Auswahlliste.
+Die Auswahl wird in `~/.update-stack-selection` gespeichert und beim nächsten Aufruf
+automatisch geladen.
+
+```bash
+python3 update-stack.py [-s]
+# oder per Alias:
+updatestack        # lädt gespeicherte Auswahl und führt pull + up -d aus
+updatestack -s     # öffnet TUI zur Neuauswahl
+```
+
+### Modi
+
+| Aufruf | Verhalten |
+| --- | --- |
+| `updatestack` | Lädt gespeicherte Auswahl → `docker compose pull` → fragt nach `up -d` |
+| `updatestack -s` | Öffnet TUI → Auswahl speichern → optional sofort ausführen |
+
+### TUI-Steuerung
+
+| Taste | Funktion |
+| --- | --- |
+| `↑` / `↓` | Cursor bewegen |
+| `Leertaste` | Stack ein-/abwählen |
+| `A` | Alle auswählen |
+| `N` | Keine auswählen |
+| `Enter` | Auswahl bestätigen und speichern |
+| `Q` / `Esc` | Abbrechen |
+
+---
+
+## 17. git_zizmor.py – GitHub Actions Security-Audit
+
+Führt das Tool [zizmor](https://github.com/woodruffw/zizmor) via `uvx` in allen
+Git-Repositories mit GitHub Actions Workflows aus, um Sicherheitsprobleme zu finden.
+
+Voraussetzung: `uv` im PATH (zizmor wird automatisch via `uvx` heruntergeladen).
+
+```bash
+python3 git_zizmor.py [VERZEICHNIS] [--gh-token TOKEN] [--format sarif|json] [-b]
+# oder per Alias:
+gz
+```
+
+```text
+⏭️  my-plain-repo hat keine GitHub Actions Workflows – wird übersprungen
+
+🔍 Prüfe Workflows in my-app ...
+...
+⚠️  my-app: Probleme gefunden (siehe oben)
+
+🔍 Prüfe Workflows in secure-repo ...
+✅ secure-repo: keine Probleme gefunden
+```
+
+### Optionen
+
+| Option | Bedeutung |
+| --- | --- |
+| `--gh-token TOKEN` | GitHub Token für erweiterte Online-Checks (Impostor-Commits, CVEs) |
+| `--format sarif\|json` | Maschinenlesbares Ausgabeformat (Standard: menschenlesbar) |
+| `-b` | Unterdrückt "required by blanket policy"-Findings (`--persona=regular`) |
+
+---
+
+## 18. local_push.py – Lokale Repos nach Gitea pushen
+
+Durchsucht ein lokales Verzeichnis nach Git-Repositories und pusht jedes in die
+Gitea-Organisation `local`. Repos, die bereits in `local` oder `github` vorhanden
+sind, werden übersprungen.
+
+### Umgebungsvariablen
+
+```bash
+export GITEA_TOKEN="dein-gitea-api-token"
+```
+
+```bash
+python3 local_push.py [VERZEICHNIS]
+# oder per Alias:
+lp
+```
+
+Ohne Argument wird `/mnt/z/github` als Quellverzeichnis verwendet.
+
+```text
+🚀 Lokale Repos aus /mnt/z/github nach Gitea (local) pushen...
+
+⏭ Überspringe existing-repo (existiert bereits in local)
+➕ new-project
+  ✔ Gepusht
+
+📊 Fertig: 1 gepusht, 1 übersprungen, 0 Fehler
+```
+
+> **Hinweis:** Verwendet `GIT_SSL_NO_VERIFY=true` und `ssl._create_unverified_context()`,
+> da die Gitea-Instanz ein selbstsigniertes Zertifikat nutzt.
+
+---
+
+## 19. gitea-update-github-token.py – GitHub-Token in Mirrors aktualisieren
+
+Aktualisiert den GitHub-Token in allen Mirror-Repos der Gitea-Organisation `github`.
+Da die Gitea-API keinen direkten Token-Update unterstützt, wird jeder Mirror gelöscht
+und mit dem neuen Token neu erstellt.
+
+### Umgebungsvariablen
+
+```bash
+export GITHUB_USERNAME="dein-github-username"
+export GITHUB_GITEA_TOKEN="ghp_neuer-token"
+export GITEA_TOKEN="dein-gitea-api-token"
+```
+
+```bash
+python3 gitea-update-github-token.py
+# oder per Alias:
+giteaupdate
+```
+
+```text
+🔑 GitHub-Token-Update für Gitea-Mirrors...
+📋 42 Mirror-Repos in Org 'github' gefunden
+
+❓ Token für alle 42 Repos aktualisieren? (ja/[nein]): ja
+
+🔄 my-app... ✔
+🔄 other-repo... ✔
+🔄 broken-repo... ❌ Neu erstellen fehlgeschlagen: ...
+
+📊 Zusammenfassung:
+   Aktualisiert:   41
+   Fehlgeschlagen: 1
+```
+
+> **Warnung:** Der Vorgang löscht und erstellt Mirror-Repos neu. Kurzzeitige
+> Sync-Unterbrechungen sind möglich.
+
+---
+
+## 20. git_clone.py – Alle GitHub-Repos klonen
+
+Lädt über die `gh` CLI die Liste aller eigenen GitHub-Repositories und klont
+jedes in `~/github/public` (öffentliche Repos) oder `~/github/private` (private Repos).
+Bereits vorhandene Verzeichnisse werden übersprungen.
+
+Voraussetzung: GitHub CLI installiert und eingeloggt mit `gh auth login`.
+
+```bash
+python3 git_clone.py
+```
+
+```text
+🔍 Lade Repository-Liste via gh CLI...
+   87 Repos gefunden
+
+📥 Klone my-app → /home/samuel/github/public/my-app
+⏭️  raspberrypi existiert bereits – wird übersprungen
+📥 Klone secret-project → /home/samuel/github/private/secret-project
+
+📊 Zusammenfassung:
+   Geklont:       12
+   Übersprungen:  74
+   Fehler:        1
+
+📁 Zielordner:
+   Public:  /home/samuel/github/public
+   Private: /home/samuel/github/private
+```
+
+---
+
+## 21. check_and_add_license.sh – Lizenz zu Repos hinzufügen
+
+Prüft alle öffentlichen, nicht archivierten GitHub-Repositories auf fehlende Lizenzen
+und fügt automatisch eine Apache-2.0-Lizenz hinzu. Der Lizenztext wird direkt von der
+GitHub API geladen.
+
+Voraussetzungen: GitHub CLI (`gh`), `curl`, `jq`.
+
+```bash
+bash check_and_add_license.sh [--dry-run]
+```
+
+Mit `--dry-run` werden Commits erstellt, aber nicht gepusht.
+
+```text
+Lade Apache-2.0 Lizenztext...
+Rufe Repositories ohne Lizenz ab...
+-----------------------------------------------
+Bearbeite: wlanboy/old-project
+  Lizenz erfolgreich hinzugefügt.
+-----------------------------------------------
+Bearbeite: wlanboy/another-repo
+  Lizenz erfolgreich hinzugefügt.
+-----------------------------------------------
+Fertig.
+```
+
+> **Hinweis:** Repos, die bereits eine `LICENSE`-, `LICENSE.txt`- oder
+> `LICENSE.md`-Datei enthalten, werden auch dann übersprungen, wenn die GitHub API
+> keine Lizenz meldet.
+
+---
+
+## 22. find_big_files_in_git_history.sh – Große Dateien in Git-History finden
 
 Durchsucht alle Git-Repositories im aktuellen Verzeichnis nach Dateien, die
 in der Git-History größer als **50 KB** sind – auch wenn sie inzwischen gelöscht wurden.
