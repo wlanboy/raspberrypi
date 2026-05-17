@@ -77,12 +77,11 @@ def get_latest_runs(repo_path=None, repo_name=None):
             "--limit", "100",
             "--json", "workflowName,status,conclusion,event,headBranch,createdAt",
         ]
-        kwargs = {"capture_output": True, "text": True}
         if repo_name:
             cmd += ["--repo", repo_name]
+            result = subprocess.run(cmd, capture_output=True, text=True)
         else:
-            kwargs["cwd"] = repo_path
-        result = subprocess.run(cmd, **kwargs)
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=repo_path)
         if result.returncode != 0:
             err = result.stderr.strip().splitlines()[0] if result.stderr.strip() else "unbekannt"
             return None, err
