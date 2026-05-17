@@ -3,7 +3,6 @@
 import os
 import sys
 import subprocess
-import yaml
 
 CONFIG_PATH = "/etc/rancher/k3s/config.yaml"
 CERT_FILES = [
@@ -21,13 +20,32 @@ def check_root():
 def load_config():
     if not os.path.exists(CONFIG_PATH):
         return {}
+    config = {}
     with open(CONFIG_PATH, "r") as f:
-        return yaml.safe_load(f) or {}
+        current_key = None
+        for line in f:
+            line = line.rstrip("\n")
+            if line.startswith("  - ") and current_key:
+                config.setdefault(current_key, []).append(line[4:])
+            elif line.endswith(":"):
+                current_key = line[:-1].strip()
+                config[current_key] = []
+            elif ":" in line:
+                current_key = None
+                k, _, v = line.partition(":")
+                config[k.strip()] = v.strip()
+    return config
 
 
 def save_config(config):
     with open(CONFIG_PATH, "w") as f:
-        yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+        for key, value in config.items():
+            if isinstance(value, list):
+                f.write(f"{key}:\n")
+                for item in value:
+                    f.write(f"  - {item}\n")
+            else:
+                f.write(f"{key}: {value}\n")
 
 
 def show_sans(config):
